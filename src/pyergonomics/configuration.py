@@ -10,26 +10,11 @@ from .importers.video import init_from_video
 class Configuration:
     def __init__(self, config_path):
         self.config_path = Path(config_path)
-        if not self.config_path.is_file():
-            raise FileNotFoundError(
-                f"Configuration file not found at {config_path} "
-                f"(absolute path: {self.config_path.resolve()})"
-            )
-
-        with open(self.config_path, "r") as f:
-            self.data = toml.load(f)
-
-        project_data = self.data.get("project", {})
-        self.number_of_frames = project_data.get("number_of_frames")
-        self.frames_per_second = project_data.get("frames_per_second")
-
-        video_data = self.data.get("video", {})
-        self.width = video_data.get("width")
-        self.height = video_data.get("height")
-        self.source_video = video_data.get("source_video")
-        self.frames_folder = (
-            self.config_path.parent / "frames" if "video" in self.data else None
-        )
+        if self.config_path.is_file():
+            with open(self.config_path, "r") as f:
+                self.data = toml.load(f)
+        else:
+            self.data = {}
 
         tracking_data = self.data.get("tracking", {})
         self.tracking_df = None
@@ -40,6 +25,62 @@ class Configuration:
                 self.tracking_df = pl.read_parquet(tracking_file_path)
             else:
                 print(f"Warning: Tracking file not found at '{tracking_file_path}'")
+
+    @property
+    def number_of_frames(self):
+        return self.data.get("project", {}).get("number_of_frames")
+
+    @number_of_frames.setter
+    def number_of_frames(self, value):
+        if "project" not in self.data:
+            self.data["project"] = {}
+        self.data["project"]["number_of_frames"] = value
+
+    @property
+    def frames_per_second(self):
+        return self.data.get("project", {}).get("frames_per_second")
+
+    @frames_per_second.setter
+    def frames_per_second(self, value):
+        if "project" not in self.data:
+            self.data["project"] = {}
+        self.data["project"]["frames_per_second"] = value
+
+    @property
+    def width(self):
+        return self.data.get("video", {}).get("width")
+
+    @width.setter
+    def width(self, value):
+        if "video" not in self.data:
+            self.data["video"] = {}
+        self.data["video"]["width"] = value
+
+    @property
+    def height(self):
+        return self.data.get("video", {}).get("height")
+
+    @height.setter
+    def height(self, value):
+        if "video" not in self.data:
+            self.data["video"] = {}
+        self.data["video"]["height"] = value
+
+    @property
+    def source_video(self):
+        return self.data.get("video", {}).get("source_video")
+
+    @source_video.setter
+    def source_video(self, value):
+        if "video" not in self.data:
+            self.data["video"] = {}
+        self.data["video"]["source_video"] = value
+
+    @property
+    def frames_folder(self):
+        return (
+            self.config_path.parent / "frames" if "video" in self.data else None
+        )
 
     def set_tracking_file(self, filename: str):
         if "tracking" not in self.data:
@@ -82,13 +123,11 @@ def init_project(folder):
         print(f"Configuration file already exists at {config_path}. No changes made.")
         return
 
-    config_data = {
-        "project": {"number_of_frames": 0, "frames_per_second": 120.0},
-        "source_mocap": {},
-    }
-
-    with open(config_path, "w") as f:
-        toml.dump(config_data, f)
+    config = Configuration(config_path)
+    config.number_of_frames = 0
+    config.frames_per_second = 120.0
+    config.data["source_mocap"] = {}
+    config.save()
 
     print(f"Default configuration file created at {config_path}")
 

@@ -3,6 +3,8 @@ import toml
 import os
 from pathlib import Path
 
+from ..configuration import Configuration
+
 
 def init_from_video(video_file):
     video_path = Path(video_file)
@@ -50,17 +52,13 @@ def init_from_video(video_file):
     cap.release()
     print(f"Finished extracting {count} frames.")
 
-    config_data = {
-        "project": {"number_of_frames": count, "frames_per_second": fps},
-        "video": {
-            "source_video": str(video_path),
-            "width": width,
-            "height": height,
-        },
-    }
-
     config_path = output_dir / "project.toml"
-    with open(config_path, "w") as f:
-        toml.dump(config_data, f)
+    config = Configuration(config_path)
+    config.number_of_frames = count
+    config.frames_per_second = fps
+    config.source_video = str(video_path)
+    config.width = width
+    config.height = height
+    config.save()
 
     print(f"Configuration file created at {config_path}")
