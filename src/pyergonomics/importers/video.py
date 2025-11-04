@@ -3,10 +3,9 @@ import toml
 import os
 from pathlib import Path
 
-from ..configuration import Configuration
-
-
 def init_from_video(destination_folder, video_file=None):
+    from ..configuration import Configuration
+
     output_dir = Path(destination_folder)
     frames_dir = output_dir / "frames"
 

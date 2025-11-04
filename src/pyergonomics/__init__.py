@@ -1,2 +1,2 @@
-from .configuration import Configuration
+from .configuration import Configuration, init_project
 from .tracker import Tracker

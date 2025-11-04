@@ -6,8 +6,6 @@ import os
 from pathlib import Path
 import polars as pl
 
-from ..configuration import Configuration
-
 def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):   
     time_col = np.arange(0, (bvh_tree.nframes - 0.5) * bvh_tree.frame_time, bvh_tree.frame_time)[:, None]
     data_list = [time_col]
@@ -60,6 +58,8 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
 
 
 def init_from_bvh(destination_folder, bvh_file=None):
+    from ..configuration import Configuration
+
     output_dir = Path(destination_folder)
 
     if output_dir.exists():
