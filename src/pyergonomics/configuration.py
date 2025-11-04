@@ -2,9 +2,9 @@ import argparse
 import toml
 import os
 from pathlib import Path
-import polars as pl
 
 from .importers.video import init_from_video
+from .trackers import Tracker
 
 
 class Configuration:
@@ -15,16 +15,6 @@ class Configuration:
                 self.data = toml.load(f)
         else:
             self.data = {}
-
-        tracking_data = self.data.get("tracking", {})
-        self.tracking_df = None
-        tracking_file = tracking_data.get("tracking_file")
-        if tracking_file:
-            tracking_file_path = self.config_path.parent / tracking_file
-            if tracking_file_path.is_file():
-                self.tracking_df = pl.read_parquet(tracking_file_path)
-            else:
-                print(f"Warning: Tracking file not found at '{tracking_file_path}'")
 
     @property
     def number_of_frames(self):
@@ -81,6 +71,15 @@ class Configuration:
         return (
             self.config_path.parent / "frames" if "video" in self.data else None
         )
+
+    @property
+    def tracker(self):
+        tracking_data = self.data.get("tracking", {})
+        tracking_file = tracking_data.get("tracking_file")
+        if tracking_file:
+            tracking_file_path = self.config_path.parent / tracking_file
+            return Tracker(tracking_file_path)
+        return None
 
     def set_tracking_file(self, filename: str):
         if "tracking" not in self.data:

@@ -1,5 +1,4 @@
 from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, Qt, Slot
-import polars as pl
 
 
 class PersonModel(QAbstractListModel):
@@ -74,68 +73,13 @@ class PersonModel(QAbstractListModel):
                     )
                 break
 
-    def populate_from_data(self, df):
-        if df is None:
+    def populate_from_tracker(self, tracker):
+        if tracker is None or tracker.df is None:
             self.beginResetModel()
             self._people = []
             self.endResetModel()
             return
 
-        events_data = {}
-        bboxes_data = {}
-        keypoints_3d_data = {}
-
-        for person_id_key, person_df in df.group_by("person"):
-            # Unpack person_id, which can be a tuple when grouping
-            person_id = (
-                person_id_key[0] if isinstance(person_id_key, tuple) else person_id_key
-            )
-
-            # Bounding boxes for this person
-            bboxes_data[person_id] = {
-                row["frame"]: {
-                    "x": row["x"],
-                    "y": row["y"],
-                    "w": row["w"],
-                    "h": row["h"],
-                }
-                for row in person_df.select(["frame", "x", "y", "w", "h"]).to_dicts()
-            }
-
-            # 3D keypoints for this person
-            if "keypoints_3d" in person_df.columns:
-                keypoints_3d_data[person_id] = {
-                    row["frame"]: row["keypoints_3d"]
-                    for row in person_df.select(["frame", "keypoints_3d"]).to_dicts()
-                    if row["keypoints_3d"] is not None
-                }
-
-            # Calculate contiguous frame blocks (events)
-            frames = sorted(person_df["frame"].to_list())
-            events = []
-            if frames:
-                start_frame = frames[0]
-                end_frame = frames[0]
-                for i in range(1, len(frames)):
-                    if frames[i] == end_frame + 1:
-                        end_frame = frames[i]
-                    else:
-                        events.append([start_frame, end_frame])
-                        start_frame = frames[i]
-                        end_frame = frames[i]
-                events.append([start_frame, end_frame])
-            events_data[person_id] = events
-
         self.beginResetModel()
-        self._people = []
-        for person_id, events in sorted(events_data.items()):
-            self._people.append(
-                {
-                    "id": person_id,
-                    "events": events,
-                    "visible": True,
-                    "bounding_boxes": bboxes_data.get(person_id, {}),
-                    "keypoints_3d": keypoints_3d_data.get(person_id, {}),
-                }
-            )
+        self._people = tracker.get_persons_data()
         self.endResetModel()
