@@ -1,6 +1,5 @@
 import argparse
 import toml
-import os
 from pathlib import Path
 
 from .importers.video import init_from_video
@@ -108,7 +107,7 @@ class Configuration:
         return f"Configuration(config_path='{self.config_path}')"
 
 
-def main():
+def init_project():
     parser = argparse.ArgumentParser(description="Manage pyergonomics projects.")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
@@ -149,5 +148,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    init_project()
 
