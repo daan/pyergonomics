@@ -1,0 +1,66 @@
+import cv2
+import toml
+import os
+from pathlib import Path
+
+
+def init_from_video(video_file):
+    video_path = Path(video_file)
+    if not video_path.is_file():
+        print(f"Error: Video file not found at {video_file}")
+        return
+
+    output_dir = Path(video_path.stem)
+    frames_dir = output_dir / "frames"
+
+    if output_dir.exists():
+        print(
+            f"Error: Directory '{output_dir}' already exists. Please remove it or choose a different video."
+        )
+        return
+
+    os.makedirs(frames_dir)
+    print(f"Created directory: {frames_dir}")
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        print("Error: Could not open video file.")
+        return
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    print(f"Video properties: {frame_count} frames, {fps:.2f} FPS")
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame_filename = f"{count:06d}.png"
+        cv2.imwrite(str(frames_dir / frame_filename), frame)
+
+        count += 1
+        if count > 0 and count % 100 == 0:
+            print(f"Extracted {count}/{frame_count} frames...")
+
+    cap.release()
+    print(f"Finished extracting {count} frames.")
+
+    config_data = {
+        "project": {"number_of_frames": count, "frames_per_second": fps},
+        "video": {
+            "source_video": str(video_path),
+            "width": width,
+            "height": height,
+        },
+    }
+
+    config_path = output_dir / "project.toml"
+    with open(config_path, "w") as f:
+        toml.dump(config_data, f)
+
+    print(f"Configuration file created at {config_path}")
