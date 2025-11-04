@@ -108,43 +108,46 @@ class Configuration:
 
 
 def init_project():
-    parser = argparse.ArgumentParser(description="Manage pyergonomics projects.")
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        "--init-video",
-        type=str,
-        metavar="DEST",
-        help="Initialize a video project in the specified folder.",
-    )
-    group.add_argument(
-        "--init-mocap",
-        type=str,
-        metavar="DEST",
-        help="Initialize a mocap project in the specified folder.",
-    )
+    parser = argparse.ArgumentParser(description="Initialize a pyergonomics project.")
     parser.add_argument(
-        "--source",
-        type=str,
-        help="Source file (e.g., video.mp4 or mocap.bvh) to import data from.",
+        "folder",
+        nargs="?",
+        default=".",
+        help="The directory to initialize the project in. Defaults to the current directory.",
+    )
+    source_group = parser.add_mutually_exclusive_group()
+    source_group.add_argument(
+        "--video", type=str, help="Initialize project from a video file."
+    )
+    source_group.add_argument(
+        "--bvh", type=str, help="Initialize project from a BVH file."
     )
 
     args = parser.parse_args()
+    destination = Path(args.folder)
 
-    if args.init_video:
-        init_from_video(args.init_video, args.source)
-    elif args.init_mocap:
-        init_from_bvh(args.init_mocap, args.source)
+    # Check if target is a file
+    if destination.exists() and not destination.is_dir():
+        print(f"Error: '{destination}' exists and is not a directory.")
+        return
+
+    # Check if target directory exists (and is not the CWD)
+    if destination.is_dir() and args.folder != ".":
+        print(f"Error: Directory '{destination}' already exists.")
+        return
+
+    # Check for existing project file
+    if (destination / "project.toml").exists():
+        print(f"Error: A project.toml file already exists in '{destination}'.")
+        return
+
+    if args.video:
+        init_from_video(destination, args.video)
+    elif args.bvh:
+        init_from_bvh(destination, args.bvh)
     else:
-        # Example of how to load a configuration
-        try:
-            # Assuming project.toml is in the current directory for loading example
-            config = Configuration("project.toml")
-            print(config)
-        except FileNotFoundError:
-            print(
-                "No project.toml found. Use --init_from_video or --init to create one."
-            )
-            parser.print_help()
+        # Default project is mocap if no source is specified
+        init_from_bvh(destination, None)
 
 
 if __name__ == "__main__":

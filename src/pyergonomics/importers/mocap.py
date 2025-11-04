@@ -62,13 +62,9 @@ def init_from_bvh(destination_folder, bvh_file=None):
 
     output_dir = Path(destination_folder)
 
-    if output_dir.exists():
-        print(
-            f"Error: Directory '{output_dir}' already exists. Please remove it or choose a different BVH file."
-        )
-        return
-    os.makedirs(output_dir)
-    print(f"Created directory: {output_dir}")
+    if not output_dir.exists():
+        os.makedirs(output_dir)
+        print(f"Created directory: {output_dir}")
 
     config_path = output_dir / "project.toml"
     config = Configuration(config_path)

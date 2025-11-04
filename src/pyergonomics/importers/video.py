@@ -9,14 +9,9 @@ def init_from_video(destination_folder, video_file=None):
     output_dir = Path(destination_folder)
     frames_dir = output_dir / "frames"
 
-    if output_dir.exists():
-        print(
-            f"Error: Directory '{output_dir}' already exists. Please remove it or choose a different video."
-        )
-        return
-
-    os.makedirs(frames_dir)
-    print(f"Created directory: {frames_dir}")
+    if not frames_dir.exists():
+        os.makedirs(frames_dir)
+        print(f"Created directory: {frames_dir}")
 
     config_path = output_dir / "project.toml"
     config = Configuration(config_path)
