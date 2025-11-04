@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from .importers.video import init_from_video
+from .importers.mocap import init_from_bvh
 from .tracker import Tracker
 
 
@@ -137,6 +138,9 @@ def main():
         "--init_from_video", type=str, help="Initialize a project from a video file."
     )
     parser.add_argument(
+        "--init_from_bvh", type=str, help="Initialize a project from a BVH file."
+    )
+    parser.add_argument(
         "--init",
         type=str,
         help="Create a default project.toml for a mocap project in the specified directory.",
@@ -146,6 +150,8 @@ def main():
 
     if args.init_from_video:
         init_from_video(args.init_from_video)
+    elif args.init_from_bvh:
+        init_from_bvh(args.init_from_bvh)
     elif args.init:
         init_project(args.init)
     else:

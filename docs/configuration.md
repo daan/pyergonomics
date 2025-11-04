@@ -51,16 +51,15 @@ tracking_file = "tracking_results.parquet"
 
 ### Mocap-based Project
 
-Here is an example for a project with only motion capture data:
+Here is an example for a project with only motion capture data, for example from a BVH file:
 ```toml
 [project]
 number_of_frames = 3000
 frames_per_second = 120.0
 
 [source_mocap]
-# Mocap specific configuration here, e.g., path to data file.
-# data_file = "mocap.c3d"
+bvh_file = "path/to/my_mocap.bvh"
 
 [tracking]
-tracking_file = "mocap_data.parquet"
+tracking_file = "tracking.parquet"
 ```

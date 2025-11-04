@@ -4,6 +4,7 @@ import transforms3d as t3d
 import toml
 import os
 from pathlib import Path
+import polars as pl
 
 from ..configuration import Configuration
 
@@ -38,11 +39,11 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
         header.extend(['{}.{}'.format(joint.name, channel) for channel in 'xyz'])
         pos = joint.world_transforms[:, :3, 3]
         # data_list.append(pos)
-        data_list.append( r.apply(pos)  )
+        data_list.append(pos)
 
         print(joint.name)
 
-        bvh_dict[joint.name] = r.apply(pos) 
+        bvh_dict[joint.name] = pos
                 
         if end_sites:
             end = list(joint.filter('End'))
@@ -71,6 +72,8 @@ def init_from_bvh(bvh_file):
             f"Error: Directory '{output_dir}' already exists. Please remove it or choose a different BVH file."
         )
         return
+    os.makedirs(output_dir)
+    print(f"Created directory: {output_dir}")
 
     with open(bvh_path) as f:
         bvh = BvhTree(f.read())
@@ -80,14 +83,34 @@ def init_from_bvh(bvh_file):
     fps = 1.0 / bvh.frame_time
     frame_count = bvh.nframes
 
+    # Prepare data for DataFrame
+    joint_names = list(world_coordinates.keys())
+    keypoints_3d_per_frame = []
+    for i in range(frame_count):
+        frame_keypoints = []
+        for joint_name in joint_names:
+            frame_keypoints.append(world_coordinates[joint_name][i].tolist())
+        keypoints_3d_per_frame.append(frame_keypoints)
 
+    df = pl.DataFrame(
+        {
+            "person": [1] * frame_count,
+            "frame": range(frame_count),
+            "keypoints_3d": keypoints_3d_per_frame,
+        }
+    )
 
+    tracking_filename = "tracking.parquet"
+    tracking_filepath = output_dir / tracking_filename
+    df.write_parquet(tracking_filepath)
+    print(f"Tracking data saved to {tracking_filepath}")
 
     config_path = output_dir / "project.toml"
     config = Configuration(config_path)
-    config.number_of_frames = count
+    config.number_of_frames = frame_count
     config.frames_per_second = fps
-    config.source_bvh = str(bvh_path)
+    config.data["source_mocap"] = {"bvh_file": str(bvh_path)}
+    config.set_tracking_file(tracking_filename)
     config.save()
 
     print(f"Configuration file created at {config_path}")
