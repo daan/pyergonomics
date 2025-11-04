@@ -18,12 +18,17 @@ class Configuration:
         with open(self.config_path, "r") as f:
             self.data = toml.load(f)
 
-        image_sequence_data = self.data.get("image_sequence", {})
-        self.number_of_frames = image_sequence_data.get("number_of_frames")
-        self.frames_per_second = image_sequence_data.get("frames_per_second")
-        self.width = image_sequence_data.get("width")
-        self.height = image_sequence_data.get("height")
-        self.frames_folder = self.config_path.parent / "frames"
+        project_data = self.data.get("project", {})
+        self.number_of_frames = project_data.get("number_of_frames")
+        self.frames_per_second = project_data.get("frames_per_second")
+
+        video_data = self.data.get("video", {})
+        self.width = video_data.get("width")
+        self.height = video_data.get("height")
+        self.source_video = video_data.get("source_video")
+        self.frames_folder = (
+            self.config_path.parent / "frames" if "video" in self.data else None
+        )
 
         tracking_data = self.data.get("tracking", {})
         self.tracking_df = None
@@ -46,13 +51,16 @@ class Configuration:
             toml.dump(self.data, f)
 
     def __str__(self):
-        return (
-            f"Configuration from {self.config_path}:\n"
-            f"  - Number of frames: {self.number_of_frames}\n"
-            f"  - FPS: {self.frames_per_second}\n"
-            f"  - Dimensions: {self.width}x{self.height}\n"
-            f"  - Frames folder: {self.frames_folder}"
-        )
+        lines = [
+            f"Configuration from {self.config_path}:",
+            f"  - Number of frames: {self.number_of_frames}",
+            f"  - FPS: {self.frames_per_second}",
+        ]
+        if self.width and self.height:
+            lines.append(f"  - Dimensions: {self.width}x{self.height}")
+        if self.frames_folder:
+            lines.append(f"  - Frames folder: {self.frames_folder}")
+        return "\n".join(lines)
 
     def __repr__(self):
         return f"Configuration(config_path='{self.config_path}')"
@@ -64,10 +72,9 @@ def init_project(folder):
         print(f"Error: '{output_dir}' exists and is not a directory.")
         return
 
-    frames_dir = output_dir / "frames"
-    if not frames_dir.exists():
-        os.makedirs(frames_dir)
-        print(f"Created directory: {frames_dir}")
+    if not output_dir.exists():
+        os.makedirs(output_dir)
+        print(f"Created directory: {output_dir}")
 
     config_path = output_dir / "project.toml"
     if config_path.exists():
@@ -75,12 +82,8 @@ def init_project(folder):
         return
 
     config_data = {
-        "image_sequence": {
-            "number_of_frames": 0,
-            "frames_per_second": 25.0,
-            "width": 0,
-            "height": 0,
-        }
+        "project": {"number_of_frames": 0, "frames_per_second": 120.0},
+        "source_mocap": {},
     }
 
     with open(config_path, "w") as f:
@@ -136,12 +139,12 @@ def init_from_video(video_file):
     print(f"Finished extracting {count} frames.")
 
     config_data = {
-        "image_sequence": {
-            "number_of_frames": count,
-            "frames_per_second": fps,
+        "project": {"number_of_frames": count, "frames_per_second": fps},
+        "video": {
+            "source_video": str(video_path),
             "width": width,
             "height": height,
-        }
+        },
     }
 
     config_path = output_dir / "project.toml"
@@ -159,7 +162,7 @@ def main():
     parser.add_argument(
         "--init",
         type=str,
-        help="Create a default project.toml and a frames folder in the specified directory.",
+        help="Create a default project.toml for a mocap project in the specified directory.",
     )
 
     args = parser.parse_args()
