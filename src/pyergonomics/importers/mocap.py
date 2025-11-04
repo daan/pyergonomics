@@ -59,13 +59,8 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
     return bvh_dict
 
 
-def init_from_bvh(bvh_file):
-    bvh_path = Path(bvh_file)
-    if not bvh_path.is_file():
-        print(f"Error: BVH file not found at {bvh_file}")
-        return
-
-    output_dir = Path(bvh_path.stem)
+def init_from_bvh(destination_folder, bvh_file=None):
+    output_dir = Path(destination_folder)
 
     if output_dir.exists():
         print(
@@ -75,42 +70,54 @@ def init_from_bvh(bvh_file):
     os.makedirs(output_dir)
     print(f"Created directory: {output_dir}")
 
-    with open(bvh_path) as f:
-        bvh = BvhTree(f.read())
-
-    world_coordinates = world_joint_positions(bvh)
-
-    fps = 1.0 / bvh.frame_time
-    frame_count = bvh.nframes
-
-    # Prepare data for DataFrame
-    joint_names = list(world_coordinates.keys())
-    keypoints_3d_per_frame = []
-    for i in range(frame_count):
-        frame_keypoints = []
-        for joint_name in joint_names:
-            frame_keypoints.append(world_coordinates[joint_name][i].tolist())
-        keypoints_3d_per_frame.append(frame_keypoints)
-
-    df = pl.DataFrame(
-        {
-            "person": [1] * frame_count,
-            "frame": range(frame_count),
-            "keypoints_3d": keypoints_3d_per_frame,
-        }
-    )
-
-    tracking_filename = "tracking.parquet"
-    tracking_filepath = output_dir / tracking_filename
-    df.write_parquet(tracking_filepath)
-    print(f"Tracking data saved to {tracking_filepath}")
-
     config_path = output_dir / "project.toml"
     config = Configuration(config_path)
-    config.number_of_frames = frame_count
-    config.frames_per_second = fps
-    config.data["source_mocap"] = {"bvh_file": str(bvh_path)}
-    config.set_tracking_file(tracking_filename)
+
+    if bvh_file:
+        bvh_path = Path(bvh_file).resolve()
+        if not bvh_path.is_file():
+            print(f"Error: BVH file not found at {bvh_file}")
+            return
+
+        with open(bvh_path) as f:
+            bvh = BvhTree(f.read())
+
+        world_coordinates = world_joint_positions(bvh)
+
+        fps = 1.0 / bvh.frame_time
+        frame_count = bvh.nframes
+
+        # Prepare data for DataFrame
+        joint_names = list(world_coordinates.keys())
+        keypoints_3d_per_frame = []
+        for i in range(frame_count):
+            frame_keypoints = []
+            for joint_name in joint_names:
+                frame_keypoints.append(world_coordinates[joint_name][i].tolist())
+            keypoints_3d_per_frame.append(frame_keypoints)
+
+        df = pl.DataFrame(
+            {
+                "person": [1] * frame_count,
+                "frame": range(frame_count),
+                "keypoints_3d": keypoints_3d_per_frame,
+            }
+        )
+
+        tracking_filename = "tracking.parquet"
+        tracking_filepath = output_dir / tracking_filename
+        df.write_parquet(tracking_filepath)
+        print(f"Tracking data saved to {tracking_filepath}")
+
+        config.number_of_frames = frame_count
+        config.frames_per_second = fps
+        config.data["source_mocap"] = {"bvh_file": str(bvh_path)}
+        config.set_tracking_file(tracking_filename)
+    else:
+        config.number_of_frames = 0
+        config.frames_per_second = 120.0
+        config.data["source_mocap"] = {}
+
     config.save()
 
     print(f"Configuration file created at {config_path}")

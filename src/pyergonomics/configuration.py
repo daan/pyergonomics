@@ -108,52 +108,33 @@ class Configuration:
         return f"Configuration(config_path='{self.config_path}')"
 
 
-def init_project(folder):
-    output_dir = Path(folder)
-    if output_dir.exists() and not output_dir.is_dir():
-        print(f"Error: '{output_dir}' exists and is not a directory.")
-        return
-
-    if not output_dir.exists():
-        os.makedirs(output_dir)
-        print(f"Created directory: {output_dir}")
-
-    config_path = output_dir / "project.toml"
-    if config_path.exists():
-        print(f"Configuration file already exists at {config_path}. No changes made.")
-        return
-
-    config = Configuration(config_path)
-    config.number_of_frames = 0
-    config.frames_per_second = 120.0
-    config.data["source_mocap"] = {}
-    config.save()
-
-    print(f"Default configuration file created at {config_path}")
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Manage image sequence configuration.")
-    parser.add_argument(
-        "--init_from_video", type=str, help="Initialize a project from a video file."
-    )
-    parser.add_argument(
-        "--init_from_bvh", type=str, help="Initialize a project from a BVH file."
-    )
-    parser.add_argument(
-        "--init",
+    parser = argparse.ArgumentParser(description="Manage pyergonomics projects.")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--init-video",
         type=str,
-        help="Create a default project.toml for a mocap project in the specified directory.",
+        metavar="DEST",
+        help="Initialize a video project in the specified folder.",
+    )
+    group.add_argument(
+        "--init-mocap",
+        type=str,
+        metavar="DEST",
+        help="Initialize a mocap project in the specified folder.",
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        help="Source file (e.g., video.mp4 or mocap.bvh) to import data from.",
     )
 
     args = parser.parse_args()
 
-    if args.init_from_video:
-        init_from_video(args.init_from_video)
-    elif args.init_from_bvh:
-        init_from_bvh(args.init_from_bvh)
-    elif args.init:
-        init_project(args.init)
+    if args.init_video:
+        init_from_video(args.init_video, args.source)
+    elif args.init_mocap:
+        init_from_bvh(args.init_mocap, args.source)
     else:
         # Example of how to load a configuration
         try:
