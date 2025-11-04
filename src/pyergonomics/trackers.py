@@ -72,3 +72,31 @@ class Tracker:
                 }
             )
         return people
+
+    def get_bounding_boxes(self, frame: int):
+        if self.df is None:
+            return {}
+
+        frame_df = self.df.filter(pl.col("frame") == frame)
+        if frame_df.is_empty():
+            return {}
+
+        result = {}
+        for row in frame_df.select(["person", "x", "y", "w", "h"]).to_dicts():
+            person_id = row.pop("person")
+            result[person_id] = row
+        return result
+
+    def get_keypoints(self, frame: int):
+        if self.df is None or "keypoints_3d" not in self.df.columns:
+            return {}
+
+        frame_df = self.df.filter(pl.col("frame") == frame)
+        if frame_df.is_empty():
+            return {}
+
+        result = {}
+        for row in frame_df.select(["person", "keypoints_3d"]).to_dicts():
+            if row["keypoints_3d"] is not None:
+                result[row["person"]] = row["keypoints_3d"]
+        return result

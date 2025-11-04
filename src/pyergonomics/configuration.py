@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from .importers.video import init_from_video
-from .trackers import Tracker
+from .tracker import Tracker
 
 
 class Configuration:
