@@ -10,6 +10,9 @@ from .tracker import Tracker
 class ProjectSettings:
     def __init__(self, config_path):
         self.config_path = Path(config_path)
+        if self.config_path.is_dir():
+            self.config_path = self.config_path / "project.toml"
+
         if self.config_path.is_file():
             with open(self.config_path, "r") as f:
                 self.data = toml.load(f)
