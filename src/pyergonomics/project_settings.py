@@ -93,14 +93,18 @@ class ProjectSettings:
 
     def __str__(self):
         lines = [
-            f"Configuration from {self.config_path}:",
+            f"Project Settings from {self.config_path}:",
             f"  - Number of frames: {self.number_of_frames}",
             f"  - FPS: {self.frames_per_second}",
         ]
         if self.width and self.height:
             lines.append(f"  - Dimensions: {self.width}x{self.height}")
+        if self.source_video:
+            lines.append(f"  - Video source: {self.source_video}")
         if self.frames_folder:
             lines.append(f"  - Frames folder: {self.frames_folder}")
+        if self.tracker and self.tracker.df is not None:
+            lines.append(f"  - Tracking file: {self.tracker.tracking_file_path}")
         return "\n".join(lines)
 
     def __repr__(self):
