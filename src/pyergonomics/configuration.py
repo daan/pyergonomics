@@ -7,7 +7,7 @@ from .importers.mocap import init_from_bvh
 from .tracker import Tracker
 
 
-class Configuration:
+class ProjectSettings:
     def __init__(self, config_path):
         self.config_path = Path(config_path)
         if self.config_path.is_file():
@@ -104,7 +104,7 @@ class Configuration:
         return "\n".join(lines)
 
     def __repr__(self):
-        return f"Configuration(config_path='{self.config_path}')"
+        return f"ProjectSettings(config_path='{self.config_path}')"
 
 
 def init_project():

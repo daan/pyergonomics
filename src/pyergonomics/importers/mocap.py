@@ -58,7 +58,7 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
 
 
 def init_from_bvh(destination_folder, bvh_file=None):
-    from ..configuration import Configuration
+    from ..project_settings import ProjectSettings
 
     output_dir = Path(destination_folder)
 
@@ -67,7 +67,7 @@ def init_from_bvh(destination_folder, bvh_file=None):
         print(f"Created directory: {output_dir}")
 
     config_path = output_dir / "project.toml"
-    config = Configuration(config_path)
+    config = ProjectSettings(config_path)
 
     if bvh_file:
         bvh_path = Path(bvh_file).resolve()

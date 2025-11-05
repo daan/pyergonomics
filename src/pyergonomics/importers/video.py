@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 def init_from_video(destination_folder, video_file=None):
-    from ..configuration import Configuration
+    from ..project_settings import ProjectSettings
 
     output_dir = Path(destination_folder)
     frames_dir = output_dir / "frames"
@@ -14,7 +14,7 @@ def init_from_video(destination_folder, video_file=None):
         print(f"Created directory: {frames_dir}")
 
     config_path = output_dir / "project.toml"
-    config = Configuration(config_path)
+    config = ProjectSettings(config_path)
 
     if video_file:
         video_path = Path(video_file).resolve()
