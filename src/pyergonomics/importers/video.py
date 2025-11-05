@@ -62,6 +62,7 @@ def init_from_video(destination_folder, video_file=None):
         config.width = 0
         config.height = 0
 
+    config.up_vector = "y"
     config.save()
 
     print(f"Configuration file created at {config_path}")

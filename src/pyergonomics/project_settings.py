@@ -40,6 +40,18 @@ class ProjectSettings:
         self.data["project"]["frames_per_second"] = value
 
     @property
+    def up_vector(self):
+        return self.data.get("project", {}).get("up_vector", "y")
+
+    @up_vector.setter
+    def up_vector(self, value):
+        if value not in ["y", "z"]:
+            raise ValueError("up_vector must be either 'y' or 'z'")
+        if "project" not in self.data:
+            self.data["project"] = {}
+        self.data["project"]["up_vector"] = value
+
+    @property
     def width(self):
         return self.data.get("video", {}).get("width")
 
@@ -99,6 +111,7 @@ class ProjectSettings:
             f"Project Settings from {self.config_path}:",
             f"  - Number of frames: {self.number_of_frames}",
             f"  - FPS: {self.frames_per_second}",
+            f"  - Up vector: {self.up_vector}",
         ]
         if self.width and self.height:
             lines.append(f"  - Dimensions: {self.width}x{self.height}")

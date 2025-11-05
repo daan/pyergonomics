@@ -114,6 +114,7 @@ def init_from_bvh(destination_folder, bvh_file=None):
         config.frames_per_second = 120.0
         config.data["source_mocap"] = {}
 
+    config.up_vector = "y"
     config.save()
 
     print(f"Configuration file created at {config_path}")
