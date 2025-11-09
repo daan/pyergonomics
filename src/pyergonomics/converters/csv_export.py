@@ -40,11 +40,6 @@ def export_to_csv(project_folder, csv_filename):
         print("No persons found in tracking data.")
         return
 
-    num_frames = settings.number_of_frames
-    if not num_frames:
-        print("Error: 'number_of_frames' not set in project.toml.")
-        return
-
     output_path = Path(csv_filename)
     output_stem = output_path.stem
     output_suffix = output_path.suffix or ".csv"
@@ -53,33 +48,55 @@ def export_to_csv(project_folder, csv_filename):
     coord_col_names = [
         f"{name}_{coord}" for name in joint_names for coord in ["x", "y", "z"]
     ]
-    header = ["Frame#", "Time"] + coord_col_names
 
-    for person in persons:
-        rows = []
-        for frame_idx in tqdm(range(num_frames), desc=f"Processing person {person}"):
-            kps_at_frame = settings.tracker.get_keypoints_at_frame(frame_idx)
-            if person in kps_at_frame:
-                keypoints = kps_at_frame[person]
-                # Keypoints are expected to be a list of [x, y, z] coordinates
-                flat_keypoints = [coord for point in keypoints for coord in point]
+    for person in tqdm(persons, desc="Processing persons"):
+        person_df = settings.tracker.get_keypoints_for_person(person)
 
-                if len(flat_keypoints) != len(coord_col_names):
-                    print(
-                        f"Warning: Mismatch for person {person} at frame {frame_idx}. "
-                        f"Skeleton has {len(coord_col_names)//3} joints, "
-                        f"data has {len(flat_keypoints)//3}."
-                    )
-                    continue
-
-                time = frame_idx / fps
-                rows.append([frame_idx, time] + flat_keypoints)
-
-        if not rows:
-            print(f"No valid keypoint data found for person {person}.")
+        if person_df.is_empty() or "keypoints_3d" not in person_df.columns:
+            print(f"Warning: No valid keypoint data for person {person}.")
             continue
 
-        person_df = pl.DataFrame(rows, schema=header)
+        # Filter out rows where keypoints are null, which can occur
+        person_df = person_df.filter(pl.col("keypoints_3d").is_not_null())
+        if person_df.is_empty():
+            print(f"Warning: No valid keypoint data for person {person}.")
+            continue
+
+        # Use Polars expressions for bulk processing
+        person_df = person_df.with_columns((pl.col("frame") / fps).alias("Time"))
+
+        # Check for data integrity on the first row
+        first_row_kps = person_df.select(pl.col("keypoints_3d").first()).item()
+        if len(first_row_kps) * 3 != len(coord_col_names):
+            num_data_joints = len(first_row_kps)
+            num_skel_joints = len(coord_col_names) // 3
+            print(
+                f"Warning: Mismatch for person {person}. "
+                f"Skeleton has {num_skel_joints} joints, "
+                f"but data has {num_data_joints}."
+            )
+            continue
+
+        # Unpack the keypoints into separate columns
+        # 1. Flatten list of lists: [[x,y,z], [x,y,z]] -> [x,y,z,x,y,z]
+        # 2. Convert list to struct for unnesting
+        # 3. Unnest struct into columns
+        flat_kps_df = person_df.select(
+            pl.col("keypoints_3d").list.flatten().alias("kps_flat")
+        )
+        unpacked_df = flat_kps_df.select(
+            pl.col("kps_flat").list.to_struct()
+        ).unnest("kps_flat")
+
+        # Rename the generated 'field_0', 'field_1', ... columns
+        rename_map = {f"field_{i}": name for i, name in enumerate(coord_col_names)}
+        renamed_df = unpacked_df.rename(rename_map)
+
+        # Combine columns for the final CSV, and sort by frame
+        final_df = pl.concat(
+            [person_df.select(pl.col("frame").alias("Frame#"), "Time"), renamed_df],
+            how="horizontal",
+        ).sort("Frame#")
 
         if len(persons) > 1:
             current_output_path = output_path.with_name(
@@ -88,7 +105,7 @@ def export_to_csv(project_folder, csv_filename):
         else:
             current_output_path = output_path.with_suffix(output_suffix)
 
-        person_df.write_csv(current_output_path)
+        final_df.write_csv(current_output_path)
         print(f"Successfully wrote data for person {person} to {current_output_path}")
 
 

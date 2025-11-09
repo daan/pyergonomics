@@ -37,6 +37,12 @@ class Tracker:
         # Sort to ensure consistent order
         return self.df["person"].unique().sort().to_list()
 
+    def get_keypoints_for_person(self, person_id):
+        """Returns a DataFrame with all data for a specific person."""
+        if self.df is None:
+            return pl.DataFrame()
+        return self.df.filter(pl.col("person") == person_id)
+
     def get_persons_data(self):
         if self.df is None:
             return []
