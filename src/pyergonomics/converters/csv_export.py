@@ -14,11 +14,10 @@ from pose_skeletons import get_skeleton_def
 
 def export_to_csv(project_folder, csv_filename):
     settings = ProjectSettings(project_folder)
-    if not settings.tracker or settings.tracker.df is None:
+    if not settings.tracker or not settings.tracker.has_data:
         print(f"Error: No tracking data found for project in '{project_folder}'")
         return
 
-    tracker_df = settings.tracker.df
     fps = settings.frames_per_second
     if not fps:
         print("Error: 'frames_per_second' not set in project.toml")
@@ -35,43 +34,51 @@ def export_to_csv(project_folder, csv_filename):
         print(f"Error: {e}")
         return
 
-    persons = tracker_df["person"].unique().to_list()
+    persons = settings.tracker.get_person_ids()
     if not persons:
         print("No persons found in tracking data.")
+        return
+
+    num_frames = settings.number_of_frames
+    if not num_frames:
+        print("Error: 'number_of_frames' not set in project.toml.")
         return
 
     output_path = Path(csv_filename)
     output_stem = output_path.stem
     output_suffix = output_path.suffix or ".csv"
 
+    joint_names = [kp.name for kp in skeleton_def.keypoints]
+    coord_col_names = [
+        f"{name}_{coord}" for name in joint_names for coord in ["x", "y", "z"]
+    ]
+    header = ["Frame#", "Time"] + coord_col_names
+
     for person in persons:
-        person_df = tracker_df.filter(pl.col("person") == person).sort("frame")
-        person_df = person_df.with_columns((pl.col("frame") / fps).alias("Time"))
+        rows = []
+        for frame_idx in range(num_frames):
+            kps_at_frame = settings.tracker.get_keypoints_at_frame(frame_idx)
+            if person in kps_at_frame:
+                keypoints = kps_at_frame[person]
+                # Keypoints are expected to be a list of [x, y, z] coordinates
+                flat_keypoints = [coord for point in keypoints for coord in point]
 
-        joint_names = [kp.name for kp in skeleton_def.keypoints]
-        coord_col_names = [
-            f"{name}_{coord}" for name in joint_names for coord in ["x", "y", "z"]
-        ]
+                if len(flat_keypoints) != len(coord_col_names):
+                    print(
+                        f"Warning: Mismatch for person {person} at frame {frame_idx}. "
+                        f"Skeleton has {len(coord_col_names)//3} joints, "
+                        f"data has {len(flat_keypoints)//3}."
+                    )
+                    continue
 
-        flat_kps_df = person_df.select(pl.col("keypoints").list.flatten())
-        struct_df = flat_kps_df.select(pl.col("keypoints").list.to_struct())
-        unpacked_df = struct_df.unnest("keypoints")
+                time = frame_idx / fps
+                rows.append([frame_idx, time] + flat_keypoints)
 
-        if len(unpacked_df.columns) != len(coord_col_names):
-            print(
-                f"Error: Mismatch between skeleton definition '{skeleton_name}' "
-                f"({len(coord_col_names) // 3} joints) and tracking data "
-                f"({len(unpacked_df.columns) // 3} joints)."
-            )
-            return
+        if not rows:
+            print(f"No valid keypoint data found for person {person}.")
+            continue
 
-        rename_map = {f"field_{i}": name for i, name in enumerate(coord_col_names)}
-        renamed_df = unpacked_df.rename(rename_map)
-
-        final_df = pl.concat(
-            [person_df.select(pl.col("frame").alias("Frame#"), "Time"), renamed_df],
-            how="horizontal",
-        )
+        person_df = pl.DataFrame(rows, schema=header)
 
         if len(persons) > 1:
             current_output_path = output_path.with_name(
@@ -80,7 +87,7 @@ def export_to_csv(project_folder, csv_filename):
         else:
             current_output_path = output_path.with_suffix(output_suffix)
 
-        final_df.write_csv(current_output_path)
+        person_df.write_csv(current_output_path)
         print(f"Successfully wrote data for person {person} to {current_output_path}")
 
 

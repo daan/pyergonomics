@@ -11,6 +11,11 @@ class Tracker:
         else:
             print(f"Warning: Tracking file not found at '{self.tracking_file_path}'")
 
+    @property
+    def has_data(self):
+        """Returns True if tracking data was loaded successfully."""
+        return self.df is not None
+
     def get_keypoints_at_frame(self, frame: int):
         '''Returns a dictionary mapping person IDs to their 3D keypoints at the specified frame.'''
         if self.df is None or "keypoints_3d" not in self.df.columns:
@@ -24,6 +29,13 @@ class Tracker:
             if row["keypoints_3d"] is not None:
                 result[row["person"]] = row["keypoints_3d"]
         return result
+
+    def get_person_ids(self):
+        """Returns a list of unique person IDs found in the tracking data."""
+        if self.df is None:
+            return []
+        # Sort to ensure consistent order
+        return self.df["person"].unique().sort().to_list()
 
     def get_persons_data(self):
         if self.df is None:
