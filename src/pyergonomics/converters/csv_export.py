@@ -82,7 +82,9 @@ def export_to_csv(project_folder, csv_filename):
         # 2. Convert list to struct for unnesting
         # 3. Unnest struct into columns
         flat_kps_df = person_df.select(
-            pl.col("keypoints_3d").list.flatten().alias("kps_flat")
+            pl.col("keypoints_3d")
+            .apply(lambda L: [item for sublist in L for item in sublist])
+            .alias("kps_flat")
         )
         unpacked_df = flat_kps_df.select(
             pl.col("kps_flat").list.to_struct()
