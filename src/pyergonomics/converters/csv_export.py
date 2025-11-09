@@ -1,8 +1,14 @@
 import argparse
 from pathlib import Path
 import polars as pl
+import sys
 
-from ..project_settings import ProjectSettings
+# This allows the script to be run directly for development/testing.
+if __name__ == "__main__" and __package__ is None:
+    # Add the project's 'src' directory to the Python path.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from pyergonomics.project_settings import ProjectSettings
 from pose_skeletons import get_skeleton_def
 
 
