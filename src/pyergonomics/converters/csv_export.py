@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 import polars as pl
 import sys
+from tqdm import tqdm
 
 # This allows the script to be run directly for development/testing.
 if __name__ == "__main__" and __package__ is None:
@@ -56,7 +57,7 @@ def export_to_csv(project_folder, csv_filename):
 
     for person in persons:
         rows = []
-        for frame_idx in range(num_frames):
+        for frame_idx in tqdm(range(num_frames), desc=f"Processing person {person}"):
             kps_at_frame = settings.tracker.get_keypoints_at_frame(frame_idx)
             if person in kps_at_frame:
                 keypoints = kps_at_frame[person]
