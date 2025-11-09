@@ -77,26 +77,16 @@ def export_to_csv(project_folder, csv_filename):
             )
             continue
 
-        # Unpack the keypoints into separate columns
-        # 1. Flatten list of lists: [[x,y,z], [x,y,z]] -> [x,y,z,x,y,z]
-        # 2. Convert list to struct for unnesting
-        # 3. Unnest struct into columns
-        flat_kps_df = person_df.select(
-            pl.col("keypoints_3d").list.flatten().alias("kps_flat")
-        )
-        unpacked_df = flat_kps_df.select(
-            pl.col("kps_flat").list.to_struct()
-        ).unnest("kps_flat")
+        # Flatten the keypoints in Python for maximum compatibility
+        rows = []
+        for row_dict in person_df.select(["frame", "Time", "keypoints_3d"]).to_dicts():
+            flat_keypoints = [
+                coord for point in row_dict["keypoints_3d"] for coord in point
+            ]
+            rows.append([row_dict["frame"], row_dict["Time"]] + flat_keypoints)
 
-        # Rename the generated 'field_0', 'field_1', ... columns
-        rename_map = {f"field_{i}": name for i, name in enumerate(coord_col_names)}
-        renamed_df = unpacked_df.rename(rename_map)
-
-        # Combine columns for the final CSV, and sort by frame
-        final_df = pl.concat(
-            [person_df.select(pl.col("frame").alias("Frame#"), "Time"), renamed_df],
-            how="horizontal",
-        ).sort("Frame#")
+        header = ["Frame#", "Time"] + coord_col_names
+        final_df = pl.DataFrame(rows, schema=header).sort("Frame#")
 
         if len(persons) > 1:
             current_output_path = output_path.with_name(
