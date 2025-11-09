@@ -1,0 +1,10 @@
+[project]
+number_of_frames = 7297
+frames_per_second = 120.00480019200768
+pose_skeleton = optitrack
+
+[source_mocap]
+bvh_file = "/Users/d.p.saakes/code/vibe/umu_002.bvh"
+
+[tracking]
+tracking_file = "tracking.parquet"
