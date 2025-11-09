@@ -1,5 +1,6 @@
 import argparse
 import toml
+import tomllib
 from pathlib import Path
 
 from .importers.video import init_from_video
@@ -14,8 +15,8 @@ class ProjectSettings:
             self.config_path = self.config_path / "project.toml"
 
         if self.config_path.is_file():
-            with open(self.config_path, "r") as f:
-                self.data = toml.load(f)
+            with open(self.config_path, "rb") as f:
+                self.data = tomllib.load(f)
         else:
             self.data = {}
 
