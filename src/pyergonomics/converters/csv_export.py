@@ -95,7 +95,7 @@ def export_to_csv(project_folder, csv_filename):
         else:
             current_output_path = output_path.with_suffix(output_suffix)
 
-        final_df.write_csv(current_output_path)
+        final_df.write_csv(current_output_path, float_precision=4)
         print(f"Successfully wrote data for person {person} to {current_output_path}")
 
 
