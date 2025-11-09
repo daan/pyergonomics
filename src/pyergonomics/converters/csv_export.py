@@ -83,7 +83,7 @@ def export_to_csv(project_folder, csv_filename):
         # 3. Unnest struct into columns
         flat_kps_df = person_df.select(
             pl.col("keypoints_3d")
-            .apply(lambda L: [item for sublist in L for item in sublist])
+            .map(lambda L: [item for sublist in L for item in sublist])
             .alias("kps_flat")
         )
         unpacked_df = flat_kps_df.select(
