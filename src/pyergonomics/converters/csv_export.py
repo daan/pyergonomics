@@ -3,7 +3,7 @@ from pathlib import Path
 import polars as pl
 
 from ..project_settings import ProjectSettings
-from ..pose_skeletons import get_skeleton_def
+from pose_skeletons import get_skeleton_def
 
 
 def export_to_csv(project_folder, csv_filename):
