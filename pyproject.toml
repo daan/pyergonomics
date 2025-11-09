@@ -33,4 +33,5 @@ pose-skeletons = { path = "../pose_skeletons", editable = true }
 
 [project.scripts]
 init-project = "pyergonomics:init_project"
+pye2csv = "pyergonomics.exporters.csv_export:main"
 
