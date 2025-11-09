@@ -10,6 +10,7 @@ This section contains generic information about the project.
 
 - `number_of_frames` (integer): The total number of frames in the sequence.
 - `frames_per_second` (float): The sampling rate of the data in frames (or samples) per second.
+- `pose_skeleton` (string, optional): The name of the pose skeleton used in the project (e.g., "optitrack").
 
 ## `[video]`
 
@@ -39,6 +40,7 @@ Here is an example of a `project.toml` file for a project based on a video:
 [project]
 number_of_frames = 1500
 frames_per_second = 29.97
+pose_skeleton = "optitrack"
 
 [video]
 source_video = "path/to/my_video.mp4"
@@ -56,6 +58,7 @@ Here is an example for a project with only motion capture data, for example from
 [project]
 number_of_frames = 3000
 frames_per_second = 120.0
+pose_skeleton = "optitrack"
 
 [source_mocap]
 bvh_file = "path/to/my_mocap.bvh"

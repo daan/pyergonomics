@@ -40,6 +40,16 @@ class ProjectSettings:
         self.data["project"]["frames_per_second"] = value
 
     @property
+    def pose_skeleton(self):
+        return self.data.get("project", {}).get("pose_skeleton")
+
+    @pose_skeleton.setter
+    def pose_skeleton(self, value):
+        if "project" not in self.data:
+            self.data["project"] = {}
+        self.data["project"]["pose_skeleton"] = value
+
+    @property
     def up_vector(self):
         return self.data.get("project", {}).get("up_vector", "y")
 
@@ -113,6 +123,8 @@ class ProjectSettings:
             f"  - FPS: {self.frames_per_second}",
             f"  - Up vector: {self.up_vector}",
         ]
+        if self.pose_skeleton:
+            lines.append(f"  - Pose skeleton: {self.pose_skeleton}")
         if self.width and self.height:
             lines.append(f"  - Dimensions: {self.width}x{self.height}")
         if self.source_video:
