@@ -35,8 +35,8 @@ def export_to_csv(project_folder, csv_filename):
         print(f"Error: {e}")
         return
 
-    person_ids = tracker_df["person_id"].unique().to_list()
-    if not person_ids:
+    persons = tracker_df["person"].unique().to_list()
+    if not persons:
         print("No persons found in tracking data.")
         return
 
@@ -44,8 +44,8 @@ def export_to_csv(project_folder, csv_filename):
     output_stem = output_path.stem
     output_suffix = output_path.suffix or ".csv"
 
-    for person_id in person_ids:
-        person_df = tracker_df.filter(pl.col("person_id") == person_id).sort("frame")
+    for person in persons:
+        person_df = tracker_df.filter(pl.col("person") == person).sort("frame")
         person_df = person_df.with_columns((pl.col("frame") / fps).alias("Time"))
 
         joint_names = [kp.name for kp in skeleton_def.keypoints]
@@ -73,15 +73,15 @@ def export_to_csv(project_folder, csv_filename):
             how="horizontal",
         )
 
-        if len(person_ids) > 1:
+        if len(persons) > 1:
             current_output_path = output_path.with_name(
-                f"{output_stem}_{person_id}{output_suffix}"
+                f"{output_stem}_{person}{output_suffix}"
             )
         else:
             current_output_path = output_path.with_suffix(output_suffix)
 
         final_df.write_csv(current_output_path)
-        print(f"Successfully wrote data for person {person_id} to {current_output_path}")
+        print(f"Successfully wrote data for person {person} to {current_output_path}")
 
 
 def main():
