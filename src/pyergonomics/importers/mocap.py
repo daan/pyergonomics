@@ -1,5 +1,5 @@
 import numpy as np
-from bvhtoolbox import Bvh, BvhNode, BvhTree, get_affines
+from bvhtoolbox import Bvh, BvhNode, BvhTree, get_affines, get_quaternions
 import transforms3d as t3d
 import toml
 import os
@@ -15,6 +15,7 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
     # print(time_col)
 
     bvh_dict = {}
+    bvh_quat_dict = {}
     
     def get_world_positions(joint):
         if joint.value[0] == 'End':
@@ -25,6 +26,7 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
             axes_order = ''.join([ch[:1] for ch in channels if ch[1:] == 'rotation']).lower()  # FixMe: This isn't going to work when not all rotation channels are present
             axes_order = 's' + axes_order[::-1]
             joint.world_transforms = get_affines(bvh_tree, joint.name, axes=axes_order)
+            bvh_quat_dict[joint.name] = get_quaternions(bvh_tree, joint.name, axes=axes_order)
             
         if joint != root:
             # For joints substitute position for offsets.
@@ -54,7 +56,7 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
 
     data = np.concatenate(data_list, axis=1)
 
-    return bvh_dict
+    return bvh_dict, bvh_quat_dict
 
 
 def init_from_bvh(destination_folder, bvh_file=None):
@@ -78,7 +80,7 @@ def init_from_bvh(destination_folder, bvh_file=None):
         with open(bvh_path) as f:
             bvh = BvhTree(f.read())
 
-        world_coordinates = world_joint_positions(bvh)
+        world_coordinates, world_rotations = world_joint_positions(bvh)
 
         fps = 1.0 / bvh.frame_time
         frame_count = bvh.nframes
@@ -86,18 +88,25 @@ def init_from_bvh(destination_folder, bvh_file=None):
         # Prepare data for DataFrame
         joint_names = list(world_coordinates.keys())
         keypoints_3d_per_frame = []
+        keypoints_quat_per_frame = []
         for i in range(frame_count):
             frame_keypoints = []
+            frame_quats = []
             for joint_name in joint_names:
                 frame_keypoints.append(world_coordinates[joint_name][i].tolist())
+                if joint_name in world_rotations:
+                    frame_quats.append(world_rotations[joint_name][i].tolist())
+                else:
+                    frame_quats.append([1.0, 0.0, 0.0, 0.0])
             keypoints_3d_per_frame.append(frame_keypoints)
+            keypoints_quat_per_frame.append(frame_quats)
 
         df = pl.DataFrame(
             {
                 "person": [1] * frame_count,
                 "frame": range(frame_count),
                 "keypoints_3d": keypoints_3d_per_frame,
-                "keypoints_angle": keypoints_angle_per_frame                
+                "keypoints_quat": keypoints_quat_per_frame,
             }
         )
 
