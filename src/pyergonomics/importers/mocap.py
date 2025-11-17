@@ -97,6 +97,7 @@ def init_from_bvh(destination_folder, bvh_file=None):
                 "person": [1] * frame_count,
                 "frame": range(frame_count),
                 "keypoints_3d": keypoints_3d_per_frame,
+                "keypoints_angle": keypoints_angle_per_frame                
             }
         )
 
