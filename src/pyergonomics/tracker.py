@@ -30,6 +30,20 @@ class Tracker:
                 result[row["person"]] = row["keypoints_3d"]
         return result
 
+    def get_quaternions_at_frame(self, frame: int):
+        '''Returns a dictionary mapping person IDs to their quaternions at the specified frame.'''
+        if self.df is None or "keypoints_quat" not in self.df.columns:
+            return {}
+        frame_df = self.df.filter(pl.col("frame") == frame)
+        if frame_df.is_empty():
+            return {}
+
+        result = {}
+        for row in frame_df.select(["person", "keypoints_quat"]).to_dicts():
+            if row["keypoints_quat"] is not None:
+                result[row["person"]] = row["keypoints_quat"]
+        return result
+
     def get_person_ids(self):
         """Returns a list of unique person IDs found in the tracking data."""
         if self.df is None:
