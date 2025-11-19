@@ -31,7 +31,7 @@ class Tracker:
         return result
 
     def get_quaternions_at_frame(self, frame: int):
-        '''Returns a dictionary mapping person IDs to their quaternions at the specified frame.'''
+        '''Returns a dictionary mapping person IDs to their quaternions wxyz at the specified frame.'''
         if self.df is None or "keypoints_quat" not in self.df.columns:
             return {}
         frame_df = self.df.filter(pl.col("frame") == frame)
