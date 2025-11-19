@@ -57,6 +57,18 @@ class Tracker:
             return pl.DataFrame()
         return self.df.filter(pl.col("person") == person_id)
 
+    def get_quaternions_for_person(self, person_id):
+        """Returns a dictionary mapping frame numbers to quaternions for a specific person."""
+        if self.df is None or "keypoints_quat" not in self.df.columns:
+            return {}
+        person_df = self.df.filter(pl.col("person") == person_id)
+
+        return {
+            row["frame"]: row["keypoints_quat"]
+            for row in person_df.select(["frame", "keypoints_quat"]).to_dicts()
+            if row["keypoints_quat"] is not None
+        }
+
     def get_persons_data(self):
         if self.df is None:
             return []
