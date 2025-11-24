@@ -7,6 +7,11 @@ from pathlib import Path
 import polars as pl
 
 def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):   
+    # Transformation from Y-up to Z-up coordinate system
+    # this is a rotation of -90 degrees around the X axis.
+    q_yup_to_zup = t3d.quaternions.axangle2quat([1, 0, 0], -np.pi / 2)
+    q_yup_to_zup_inv = t3d.quaternions.qinverse(q_yup_to_zup)
+
     time_col = np.arange(0, (bvh_tree.nframes - 0.5) * bvh_tree.frame_time, bvh_tree.frame_time)[:, None]
     data_list = [time_col]
     header = ['time']
@@ -26,7 +31,11 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
             axes_order = ''.join([ch[:1] for ch in channels if ch[1:] == 'rotation']).lower()  # FixMe: This isn't going to work when not all rotation channels are present
             axes_order = 's' + axes_order[::-1]
             joint.world_transforms = get_affines(bvh_tree, joint.name, axes=axes_order)
-            bvh_quat_dict[joint.name] = get_quaternions(bvh_tree, joint.name, axes=axes_order)
+            
+            # Get quaternions and transform them from Y-up to Z-up
+            quats = get_quaternions(bvh_tree, joint.name, axes=axes_order)
+            temp = t3d.quaternions.qmult(q_yup_to_zup_inv, quats)
+            bvh_quat_dict[joint.name] = t3d.quaternions.qmult(temp, q_yup_to_zup)
             
         if joint != root:
             # For joints substitute position for offsets.
@@ -38,12 +47,16 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
             
         header.extend(['{}.{}'.format(joint.name, channel) for channel in 'xyz'])
         pos = joint.world_transforms[:, :3, 3]
+        
+        # Convert from Y-up to Z-up coordinate system: (x, y, z) -> (x, -z, y)
+        pos_z_up = np.c_[pos[:, 0], -pos[:, 2], pos[:, 1]]
+        
         # data_list.append(pos)
-        data_list.append(pos)
+        data_list.append(pos_z_up)
 
         print(joint.name)
 
-        bvh_dict[joint.name] = pos
+        bvh_dict[joint.name] = pos_z_up
                 
         if end_sites:
             end = list(joint.filter('End'))
@@ -124,7 +137,6 @@ def init_from_bvh(destination_folder, bvh_file=None):
         config.frames_per_second = 120.0
         config.data["source_mocap"] = {}
 
-    config.up_vector = "y"
     config.save()
 
     print(f"Configuration file created at {config_path}")
