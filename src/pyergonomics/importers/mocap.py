@@ -34,8 +34,8 @@ def world_joint_positions(bvh_tree, scale=1.0, end_sites=False):
             
             # Get quaternions and transform them from Y-up to Z-up
             quats = get_quaternions(bvh_tree, joint.name, axes=axes_order)
-            temp = t3d.quaternions.qmult(q_yup_to_zup_inv, quats)
-            bvh_quat_dict[joint.name] = t3d.quaternions.qmult(temp, q_yup_to_zup)
+            temp = np.array([t3d.quaternions.qmult(q_yup_to_zup_inv, q) for q in quats])
+            bvh_quat_dict[joint.name] = np.array([t3d.quaternions.qmult(t, q_yup_to_zup) for t in temp])
             
         if joint != root:
             # For joints substitute position for offsets.
