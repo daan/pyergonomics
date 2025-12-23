@@ -1,5 +1,4 @@
 import cv2
-import toml
 import os
 from pathlib import Path
 

@@ -1,4 +1,4 @@
-from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, Qt, Slot
+from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Slot
 
 
 class PersonModel(QAbstractListModel):

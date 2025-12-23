@@ -19,6 +19,7 @@ class ProjectSettings:
                 self.data = tomllib.load(f)
         else:
             self.data = {}
+        self._tracker = None
 
     @property
     def number_of_frames(self):
@@ -88,17 +89,21 @@ class ProjectSettings:
 
     @property
     def tracker(self):
+        if self._tracker is not None:
+            return self._tracker
         tracking_data = self.data.get("tracking", {})
         tracking_file = tracking_data.get("tracking_file")
         if tracking_file:
             tracking_file_path = self.config_path.parent / tracking_file
-            return Tracker(tracking_file_path)
+            self._tracker = Tracker(tracking_file_path)
+            return self._tracker
         return None
 
     def set_tracking_file(self, filename: str):
         if "tracking" not in self.data:
             self.data["tracking"] = {}
         self.data["tracking"]["tracking_file"] = filename
+        self._tracker = None
 
     def save(self, path=None):
         save_path = Path(path) if path else self.config_path
