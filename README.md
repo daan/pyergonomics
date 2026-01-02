@@ -7,9 +7,10 @@
 
 
 
-## example
 
-First init a project using a bvh file
+## getting started
+
+Initialize a project using a bvh file
 
 ```
 init-project --bvh <path to bvh file> new_project

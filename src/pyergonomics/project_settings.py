@@ -45,6 +45,10 @@ class ProjectSettings:
     def pose_skeleton(self):
         return self.data.get("project", {}).get("pose_skeleton")
 
+    @property
+    def pose_skeleton(self):
+        return self.data.get("project", {}).get("pose_skeleton")
+
     @pose_skeleton.setter
     def pose_skeleton(self, value):
         if "project" not in self.data:
@@ -86,6 +90,9 @@ class ProjectSettings:
         return (
             self.config_path.parent / "frames" if "video" in self.data else None
         )
+    
+    def frame_path(self, frame):
+        return  self.frames_folder / f"{frame:06d}.png"
 
     @property
     def tracker(self):

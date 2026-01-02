@@ -4,6 +4,9 @@ from pathlib import Path
 
 from .pose_assessment import make_pose_assessment
 
+class MergeOverlapError(Exception):
+    pass
+
 class Tracker:
     def __init__(self, tracking_file_path):
         self.tracking_file_path = Path(tracking_file_path)
@@ -17,6 +20,45 @@ class Tracker:
     def has_data(self):
         """Returns True if tracking data was loaded successfully."""
         return self.df is not None
+
+    def save(self, path=None):
+        """Saves the current dataframe to parquet."""
+        if self.df is None:
+            return
+        
+        save_path = Path(path) if path else self.tracking_file_path
+        # Ensure directory exists
+        if save_path.parent:
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+        self.df.write_parquet(save_path)
+
+    def remove_persons(self, person_ids):
+        """Removes specific person IDs from the data."""
+        if self.df is None:
+            return
+        self.df = self.df.filter(~pl.col("person").is_in(person_ids))
+
+    def merge_persons(self, target_id, source_ids):
+        """Merges source_ids into target_id."""
+        if self.df is None:
+            return
+
+        # Check for overlap
+        involved_ids = [target_id] + list(source_ids)
+        subset = self.df.filter(pl.col("person").is_in(involved_ids))
+        
+        # Check if any frame appears more than once
+        overlap = subset.group_by("frame").len().filter(pl.col("len") > 1)
+        
+        if not overlap.is_empty():
+            raise MergeOverlapError("Cannot merge persons because their timelines overlap.")
+
+        self.df = self.df.with_columns(
+            pl.when(pl.col("person").is_in(source_ids))
+            .then(pl.lit(target_id))
+            .otherwise(pl.col("person"))
+            .alias("person")
+        )
 
     def get_keypoints_at_frame(self, frame: int):
         '''Returns a dictionary mapping person IDs to their 3D keypoints at the specified frame.'''
@@ -79,6 +121,56 @@ class Tracker:
             row["frame"]: row["keypoints_quat"]
             for row in person_df.select(["frame", "keypoints_quat"]).to_dicts()
             if row["keypoints_quat"] is not None
+        }
+
+    def get_events_for_person(self, person_id):
+        """Returns a list of [start, end] frame ranges where the person is present."""
+        if self.df is None:
+            return []
+        
+        # Get sorted frames for this person
+        frames = self.df.filter(pl.col("person") == person_id)["frame"].sort().to_list()
+        
+        events = []
+        if frames:
+            start_frame = frames[0]
+            end_frame = frames[0]
+            for i in range(1, len(frames)):
+                if frames[i] == end_frame + 1:
+                    end_frame = frames[i]
+                else:
+                    events.append([start_frame, end_frame])
+                    start_frame = frames[i]
+                    end_frame = frames[i]
+            events.append([start_frame, end_frame])
+        return events
+
+    def get_bounding_boxes_for_person(self, person_id):
+        """Returns a dictionary of frame -> {x, y, w, h} for the person."""
+        if self.df is None:
+            return {}
+        
+        person_df = self.df.filter(pl.col("person") == person_id)
+        return {
+            row["frame"]: {
+                "x": row["x"],
+                "y": row["y"],
+                "w": row["w"],
+                "h": row["h"],
+            }
+            for row in person_df.select(["frame", "x", "y", "w", "h"]).to_dicts()
+        }
+
+    def get_keypoints_3d_dict(self, person_id):
+        """Returns a dictionary of frame -> keypoints_3d for the person."""
+        if self.df is None or "keypoints_3d" not in self.df.columns:
+            return {}
+            
+        person_df = self.df.filter(pl.col("person") == person_id)
+        return {
+            row["frame"]: row["keypoints_3d"]
+            for row in person_df.select(["frame", "keypoints_3d"]).to_dicts()
+            if row["keypoints_3d"] is not None
         }
 
     def get_persons_data(self):
