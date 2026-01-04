@@ -1,10 +1,9 @@
 import argparse
 import sys
 from pathlib import Path
-import cv2
 import polars as pl
 from tqdm import tqdm
-from ultralytics import YOLO
+
 
 # Handle imports depending on execution context
 if __name__ == "__main__" and __package__ is None:
@@ -25,6 +24,9 @@ def track_video(project_path, model_name='yolo11x-pose.pt'):
     Process the video defined in the project settings using YOLO11 and BoT-SORT,
     extract bounding boxes, and save them to a parquet file.
     """
+    from ultralytics import YOLO
+    import cv2
+
     # Initialize project settings
     project_path = Path(project_path)
     if not project_path.exists():

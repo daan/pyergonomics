@@ -35,7 +35,7 @@ Rectangle {
             // Update selection
             if (mouse.modifiers & Qt.ShiftModifier) {
                 appState.updateSelection(personId, "range");
-            } else if (mouse.modifiers & Qt.ControlModifier) {
+            } else if (mouse.modifiers & Qt.ControlModifier || mouse.modifiers & Qt.MetaModifier) {
                 appState.updateSelection(personId, "toggle");
             } else {
                 appState.updateSelection(personId, "single");

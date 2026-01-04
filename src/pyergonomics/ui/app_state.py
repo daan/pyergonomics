@@ -1,10 +1,11 @@
-from PySide6.QtCore import QObject, Signal, Property, QUrl, Slot, QTimer
+from PySide6.QtCore import QObject, Signal, Property, QUrl, Slot, QTimer, QItemSelectionModel, QItemSelection
 from PySide6.QtWidgets import QMessageBox
 from pathlib import Path
 import polars as pl
 
 from ..project_settings import ProjectSettings
 from ..tracker import MergeOverlapError
+from .models.person_model import PersonModel
 
 
 class AppState(QObject):
@@ -19,6 +20,8 @@ class AppState(QObject):
     def __init__(self, project_path, parent=None):
         super().__init__(parent)
         self.person_model = None
+        self.selection_model = None
+        self._selected_person_ids_cache = [] # Cache for QML property
         self._load_project_data(project_path)
 
     def _load_project_data(self, project_path):
@@ -32,15 +35,13 @@ class AppState(QObject):
         self._current_frame = 0
         self.currentFrameChanged.emit()
 
-        self._selected_person_ids = []
+        self._selected_person_ids_cache = []
         self.selectedPersonIdsChanged.emit()
 
         self._all_person_ids = []
         if self.tracker.has_data:
             self._all_person_ids = self.tracker.get_person_ids()
             
-        self._selection_anchor_id = -1
-
         # Base path to your image sequence.
         # Use file:/// prefix for local files in QML.
         self._image_sequence_path = "file:///path/to/your/images/"
@@ -63,6 +64,23 @@ class AppState(QObject):
 
     def set_person_model(self, model):
         self.person_model = model
+        # Initialize Selection Model
+        self.selection_model = QItemSelectionModel(self.person_model)
+        self.selection_model.selectionChanged.connect(self._on_selection_changed)
+
+    def _on_selection_changed(self, selected, deselected):
+        """Updates the cached list of IDs when the internal selection model changes."""
+        if not self.person_model:
+            return
+        
+        # Rebuild the list of selected IDs
+        # We use selectedRows() to avoid duplicates if multiple columns existed (though here it's 1 col)
+        indexes = self.selection_model.selectedRows()
+        self._selected_person_ids_cache = [
+            idx.data(PersonModel.PersonIdRole) for idx in indexes
+        ]
+        self._selected_person_ids_cache.sort()
+        self.selectedPersonIdsChanged.emit()
 
     @Property(str, notify=projectPathChanged)
     def projectPath(self):
@@ -175,7 +193,7 @@ class AppState(QObject):
 
     @Property("QVariantList", notify=selectedPersonIdsChanged)
     def selectedPersonIds(self):
-        return self._selected_person_ids
+        return self._selected_person_ids_cache
 
     @Slot(str)
     def load_project(self, project_url):
@@ -183,6 +201,9 @@ class AppState(QObject):
         self._load_project_data(toml_path)
         if self.person_model:
             self.person_model.populate_from_tracker(self.tracker)
+            # Clear selection on reload
+            if self.selection_model:
+                self.selection_model.clear()
 
     @Slot()
     def save_project(self):
@@ -226,25 +247,25 @@ class AppState(QObject):
 
     @Slot()
     def delete_selected_persons(self):
-        if not self._selected_person_ids or self.person_model is None:
+        if not self._selected_person_ids_cache or self.person_model is None:
             return
 
-        ids_to_delete = self._selected_person_ids[:]
+        ids_to_delete = self._selected_person_ids_cache[:]
         self.tracker.remove_persons(ids_to_delete)
 
         self.person_model.remove_persons(ids_to_delete)
 
         self._all_person_ids = [pid for pid in self._all_person_ids if pid not in ids_to_delete]
-        self._selected_person_ids = []
-        self._selection_anchor_id = -1
-        self.selectedPersonIdsChanged.emit()
+        
+        # Selection model handles clearing automatically when rows are removed,
+        # but we ensure cache is updated via the signal.
 
     @Slot()
     def merge_selected_persons(self):
-        if len(self._selected_person_ids) < 2 or self.person_model is None:
+        if len(self._selected_person_ids_cache) < 2 or self.person_model is None:
             return
 
-        selected_ids = sorted(self._selected_person_ids)
+        selected_ids = sorted(self._selected_person_ids_cache)
         target_id = selected_ids[0]
         source_ids = selected_ids[1:]
 
@@ -261,39 +282,55 @@ class AppState(QObject):
         # Update internal state
         self._all_person_ids = [pid for pid in self._all_person_ids if pid not in source_ids]
 
-        # Select the merged person and clear the old selection state
-        self._selected_person_ids = [target_id]
-        self._selection_anchor_id = target_id
-        self.selectedPersonIdsChanged.emit()
+        # Select the merged person
+        if self.selection_model:
+            self.selection_model.clear()
+            target_index = self.person_model.getIndexForPersonId(target_id)
+            if target_index.isValid():
+                self.selection_model.select(target_index, QItemSelectionModel.Select | QItemSelectionModel.Rows)
+                self.selection_model.setCurrentIndex(target_index, QItemSelectionModel.Current)
+
+    @Slot()
+    def clearSelection(self):
+        if self.selection_model:
+            self.selection_model.clear()
 
     @Slot(int, str)
     def updateSelection(self, person_id, mode):
+        if not self.person_model or not self.selection_model:
+            return
+
+        index = self.person_model.getIndexForPersonId(person_id)
+        if not index.isValid():
+            return
+
+        command = QItemSelectionModel.NoUpdate
+
         if mode == 'single':
-            self._selected_person_ids = [person_id]
-            self._selection_anchor_id = person_id
+            # Clear existing and select this one
+            command = QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows
+            self.selection_model.select(index, command)
+            self.selection_model.setCurrentIndex(index, QItemSelectionModel.Current)
+            
         elif mode == 'toggle':
-            if person_id in self._selected_person_ids:
-                self._selected_person_ids.remove(person_id)
-            else:
-                self._selected_person_ids.append(person_id)
-                self._selection_anchor_id = person_id
+            # Toggle this one, keep others
+            command = QItemSelectionModel.Toggle | QItemSelectionModel.Rows
+            self.selection_model.select(index, command)
+            self.selection_model.setCurrentIndex(index, QItemSelectionModel.Current)
+            
         elif mode == 'range':
-            if self._selection_anchor_id == -1:
-                self._selected_person_ids = [person_id]
-                self._selection_anchor_id = person_id
+            # Select range from anchor (currentIndex) to this one
+            anchor = self.selection_model.currentIndex()
+            if not anchor.isValid():
+                # Fallback to single select if no anchor
+                command = QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows
+                self.selection_model.select(index, command)
             else:
-                try:
-                    anchor_index = self._all_person_ids.index(self._selection_anchor_id)
-                    current_index = self._all_person_ids.index(person_id)
-
-                    start = min(anchor_index, current_index)
-                    end = max(anchor_index, current_index)
-
-                    range_ids = self._all_person_ids[start:end + 1]
-                    self._selected_person_ids = range_ids
-                except ValueError:
-                    self._selected_person_ids = [person_id]
-                    self._selection_anchor_id = person_id
-
-        self._selected_person_ids.sort()
-        self.selectedPersonIdsChanged.emit()
+                # Create a selection range
+                selection = QItemSelection(anchor, index)
+                # Standard behavior: Clear existing, select the range
+                command = QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows
+                self.selection_model.select(selection, command)
+            
+            # Update current index to the new click
+            self.selection_model.setCurrentIndex(index, QItemSelectionModel.Current)

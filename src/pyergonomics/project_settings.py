@@ -3,8 +3,6 @@ import toml
 import tomllib
 from pathlib import Path
 
-from .importers.video import init_from_video
-from .importers.mocap import init_from_bvh
 from .tracker import Tracker
 
 
@@ -174,11 +172,15 @@ def init_project():
         return
 
     if args.video:
+        from .importers.video import init_from_video
         init_from_video(destination, args.video)
     elif args.bvh:
+        from .importers.mocap import init_from_bvh
         init_from_bvh(destination, args.bvh)
     else:
+        # TODO: remove this defaulting behavior?
         # Default project is mocap if no source is specified
+        from .importers.mocap import init_from_bvh
         init_from_bvh(destination, None)
 
 

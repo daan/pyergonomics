@@ -83,8 +83,19 @@ Item {
                     break
                 }
             }
+            
+            var isModifier = (mouse.modifiers & Qt.ControlModifier) || (mouse.modifiers & Qt.MetaModifier) || (mouse.modifiers & Qt.AltModifier)
+
             if (clickedPerson !== -1) {
-                appState.updateSelection(clickedPerson, "toggle")
+                if (isModifier) {
+                    appState.updateSelection(clickedPerson, "toggle")
+                } else {
+                    appState.updateSelection(clickedPerson, "single")
+                }
+            } else {
+                if (!isModifier) {
+                    appState.clearSelection()
+                }
             }
         }
     }

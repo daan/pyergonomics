@@ -1,4 +1,4 @@
-from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Slot
+from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Slot, QPointF
 
 
 class PersonModel(QAbstractListModel):
@@ -8,6 +8,7 @@ class PersonModel(QAbstractListModel):
     IsVisibleRole = Qt.UserRole + 3
     BoundingBoxesRole = Qt.UserRole + 4
     Keypoints3dRole = Qt.UserRole + 5
+    PoseMetricsRole = Qt.UserRole + 6
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,6 +35,19 @@ class PersonModel(QAbstractListModel):
             return self._tracker.get_bounding_boxes_for_person(person_id)
         elif role == self.Keypoints3dRole:
             return self._tracker.get_keypoints_3d_dict(person_id)
+        elif role == self.PoseMetricsRole:
+            metrics = self._tracker.get_pose_metrics_for_person(person_id)
+            if not metrics or 'frame' not in metrics or len(metrics['frame']) == 0:
+                return {}
+            
+            frames = metrics['frame']
+            result = {}
+            # Convert numpy arrays to list of QPointF for QML LineSeries
+            for key in ['trunk_bending', 'trunk_side_bending', 'trunk_twist']:
+                if key in metrics and len(metrics[key]) > 0:
+                    points = [QPointF(float(f), float(v)) for f, v in zip(frames, metrics[key])]
+                    result[key] = points
+            return result
 
         return None
 
@@ -45,6 +59,7 @@ class PersonModel(QAbstractListModel):
             self.IsVisibleRole: b"isVisible",
             self.BoundingBoxesRole: b"boundingBoxes",
             self.Keypoints3dRole: b"keypoints3d",
+            self.PoseMetricsRole: b"poseMetrics",
         }
 
     @Slot(list)
@@ -90,3 +105,24 @@ class PersonModel(QAbstractListModel):
         # (Not strictly necessary as .get(id, True) handles it, but keeps dict clean)
 
         self.endResetModel()
+
+    @Slot(int, result=int)
+    def getPersonId(self, row):
+        if 0 <= row < len(self._person_ids):
+            return self._person_ids[row]
+        return -1
+
+    @Slot(int, result="QVariantMap")
+    def getMetrics(self, row):
+        if 0 <= row < len(self._person_ids):
+            idx = self.index(row)
+            return self.data(idx, self.PoseMetricsRole)
+        return {}
+
+    def getIndexForPersonId(self, person_id):
+        """Helper to find QModelIndex for a given person ID."""
+        try:
+            row = self._person_ids.index(person_id)
+            return self.index(row, 0)
+        except ValueError:
+            return QModelIndex()
