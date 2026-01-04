@@ -1,4 +1,8 @@
 from .project_settings import ProjectSettings, init_project
 from .tracker import Tracker, add_pose_assessment_columns
 from .pose_assessment import make_pose_assessment
-from .track_video import track_video
+
+# Lazy import track_video to prevent loading torch/ultralytics when just using the UI/Tracker
+def track_video(*args, **kwargs):
+    from .track_video import track_video as _track_video
+    return _track_video(*args, **kwargs)

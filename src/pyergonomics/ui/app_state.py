@@ -17,12 +17,31 @@ class AppState(QObject):
     projectLoaded = Signal()
     projectPathChanged = Signal()
 
-    def __init__(self, project_path, parent=None):
+    def __init__(self, project_path=None, parent=None):
         super().__init__(parent)
         self.person_model = None
         self.selection_model = None
         self._selected_person_ids_cache = [] # Cache for QML property
-        self._load_project_data(project_path)
+        
+        # Initialize default state
+        self.project_path = None
+        self.config = None
+        self.tracker = None
+        self._current_frame = 0
+        self._all_person_ids = []
+        self._image_sequence_path = ""
+        self._is_playing = False
+        self._was_playing_before_scrub = False
+        self._frame_rate = 24.0
+        self._total_frames = 0
+        self._view_position = 0.0
+        self._pixels_per_frame = 2.0
+        
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._advance_frame)
+        
+        if project_path:
+            self._load_project_data(project_path)
 
     def _load_project_data(self, project_path):
         self.project_path = Path(project_path)
@@ -51,8 +70,7 @@ class AppState(QObject):
         self._was_playing_before_scrub = False
         self._frame_rate = self.config.frames_per_second or 24.0
         self._total_frames = self.config.number_of_frames or 0
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._advance_frame)
+        
         if self._frame_rate > 0:
             self._timer.setInterval(int(1000 / self._frame_rate))
 
@@ -84,7 +102,7 @@ class AppState(QObject):
 
     @Property(str, notify=projectPathChanged)
     def projectPath(self):
-        return str(self.project_path)
+        return str(self.project_path) if self.project_path else ""
 
     @Property(bool, notify=isPlayingChanged)
     def isPlaying(self):
@@ -177,11 +195,11 @@ class AppState(QObject):
 
     @Property(int, notify=projectLoaded)
     def sourceWidth(self):
-        return self.config.width or 1
+        return self.config.width if (self.config and self.config.width) else 1
 
     @Property(int, notify=projectLoaded)
     def sourceHeight(self):
-        return self.config.height or 1
+        return self.config.height if (self.config and self.config.height) else 1
 
     # ✨ NEW PROPERTY HERE ✨
     @Property(QUrl, notify=currentFrameChanged)
@@ -207,7 +225,7 @@ class AppState(QObject):
 
     @Slot()
     def save_project(self):
-        if not self.tracker.has_data:
+        if not self.tracker or not self.tracker.has_data:
             print("Warning: No tracking data to save.")
             return
 
@@ -224,6 +242,9 @@ class AppState(QObject):
 
     @Slot(str)
     def save_project_as(self, new_toml_url):
+        if not self.tracker:
+             return
+
         new_toml_path = Path(QUrl(new_toml_url).toLocalFile())
         if new_toml_path.suffix != ".toml":
             new_toml_path = new_toml_path.with_suffix(".toml")
@@ -247,7 +268,7 @@ class AppState(QObject):
 
     @Slot()
     def delete_selected_persons(self):
-        if not self._selected_person_ids_cache or self.person_model is None:
+        if not self._selected_person_ids_cache or self.person_model is None or not self.tracker:
             return
 
         ids_to_delete = self._selected_person_ids_cache[:]
@@ -262,7 +283,7 @@ class AppState(QObject):
 
     @Slot()
     def merge_selected_persons(self):
-        if len(self._selected_person_ids_cache) < 2 or self.person_model is None:
+        if len(self._selected_person_ids_cache) < 2 or self.person_model is None or not self.tracker:
             return
 
         selected_ids = sorted(self._selected_person_ids_cache)
