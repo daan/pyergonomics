@@ -2,13 +2,28 @@ import QtQuick 2.15
 
 Item {
     id: root
-    
+
     property var model
-    
+    property bool hasProject: appState.sourceWidth > 1 && appState.sourceHeight > 1
+
+    Rectangle {
+        id: placeholder
+        anchors.fill: parent
+        color: "#333333"
+        visible: !hasProject || videoImage.status !== Image.Ready
+
+        Text {
+            anchors.centerIn: parent
+            text: "No project loaded"
+            color: "#888888"
+            font.pixelSize: 16
+        }
+    }
+
     Image {
         id: videoImage
         anchors.fill: parent
-        source: "image://frame_source/" + appState.currentFrame
+        source: hasProject ? "image://frame_source/" + appState.currentFrame + "?v=" + appState.projectVersion : ""
         fillMode: Image.PreserveAspectFit
         cache: false
     }

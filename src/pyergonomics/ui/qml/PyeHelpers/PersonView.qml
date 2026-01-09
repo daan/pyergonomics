@@ -88,8 +88,12 @@ View3D {
 
         const distance = radius / Math.tan(halfAngleRad);
 
-        // Set the orbit controller's origin to the center of the sphere
-        cameraOrigin.position = sphereCenter;
+        // Transform sphereCenter from z-up (pyergonomics) to y-up (QtQuick3D)
+        // The rotationNode applies eulerRotation.x: -90, which transforms (x, y, z) -> (x, z, -y)
+        const transformedCenter = Qt.vector3d(sphereCenter.x, sphereCenter.z, -sphereCenter.y);
+
+        // Set the orbit controller's origin to the transformed center
+        cameraOrigin.position = transformedCenter;
 
         // Preserve the camera's orientation by maintaining its direction
         // relative to the origin, but update its distance.

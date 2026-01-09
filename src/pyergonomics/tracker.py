@@ -149,7 +149,12 @@ class Tracker:
         """Returns a dictionary of frame -> {x, y, w, h} for the person."""
         if self.df is None:
             return {}
-        
+
+        # Check if bounding box columns exist
+        bbox_cols = ["x", "y", "w", "h"]
+        if not all(col in self.df.columns for col in bbox_cols):
+            return {}
+
         person_df = self.df.filter(pl.col("person") == person_id)
         return {
             row["frame"]: {
@@ -181,22 +186,29 @@ class Tracker:
         bboxes_data = {}
         keypoints_3d_data = {}
 
+        # Check if bounding box columns exist
+        bbox_cols = ["x", "y", "w", "h"]
+        has_bbox = all(col in self.df.columns for col in bbox_cols)
+
         for person_id_key, person_df in self.df.group_by("person"):
             # Unpack person_id, which can be a tuple when grouping
             person_id = (
                 person_id_key[0] if isinstance(person_id_key, tuple) else person_id_key
             )
 
-            # Bounding boxes for this person
-            bboxes_data[person_id] = {
-                row["frame"]: {
-                    "x": row["x"],
-                    "y": row["y"],
-                    "w": row["w"],
-                    "h": row["h"],
+            # Bounding boxes for this person (only if columns exist)
+            if has_bbox:
+                bboxes_data[person_id] = {
+                    row["frame"]: {
+                        "x": row["x"],
+                        "y": row["y"],
+                        "w": row["w"],
+                        "h": row["h"],
+                    }
+                    for row in person_df.select(["frame", "x", "y", "w", "h"]).to_dicts()
                 }
-                for row in person_df.select(["frame", "x", "y", "w", "h"]).to_dicts()
-            }
+            else:
+                bboxes_data[person_id] = {}
 
             # 3D keypoints for this person
             if "keypoints_3d" in person_df.columns:
@@ -237,6 +249,11 @@ class Tracker:
 
     def get_bounding_boxes(self, frame: int):
         if self.df is None:
+            return {}
+
+        # Check if bounding box columns exist
+        bbox_cols = ["x", "y", "w", "h"]
+        if not all(col in self.df.columns for col in bbox_cols):
             return {}
 
         frame_df = self.df.filter(pl.col("frame") == frame)

@@ -2,7 +2,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtQuick3D
+import QtQuick3D.Helpers
 import PyeHelpers 0.1
+import CvHelpers
 
 ApplicationWindow {
     id: window
@@ -15,6 +18,39 @@ ApplicationWindow {
     property int trackNameColumnWidth: 150
     property int visibilityColumnWidth: 50
     property font timelineFont: Qt.font({ pixelSize: 12 })
+
+    // Assessment view state
+    property bool showAssessmentView: appState.hasAssessment
+    property var selectedPersonMetrics: null
+    property int selectedPersonId: -1
+
+    Connections {
+        target: appState
+        function onSelectedPersonIdsChanged() {
+            updateSelectedPerson()
+        }
+    }
+
+    function updateSelectedPerson() {
+        if (appState.selectedPersonIds.length > 0) {
+            var pid = appState.selectedPersonIds[0]
+            selectedPersonId = pid
+
+            // Find index in model
+            for (var i = 0; i < personModel.rowCount(); i++) {
+                var id = personModel.getPersonId(i)
+                if (id === pid) {
+                    selectedPersonMetrics = personModel.getMetrics(i)
+                    return
+                }
+            }
+        } else {
+            selectedPersonId = -1
+            selectedPersonMetrics = null
+        }
+    }
+
+    Component.onCompleted: updateSelectedPerson()
 
     Action {
         id: openAction
@@ -44,6 +80,15 @@ ApplicationWindow {
         onTriggered: Qt.quit()
     }
 
+    Action {
+        id: toggleAssessmentAction
+        text: "Assessment View"
+        checkable: true
+        checked: window.showAssessmentView
+        enabled: appState.hasAssessment
+        onTriggered: window.showAssessmentView = checked
+    }
+
     menuBar: MenuBar {
         Menu {
             title: "File"
@@ -52,6 +97,10 @@ ApplicationWindow {
             MenuItem { action: saveAsAction }
             MenuSeparator {}
             MenuItem { action: quitAction }
+        }
+        Menu {
+            title: "View"
+            MenuItem { action: toggleAssessmentAction }
         }
     }
 
@@ -97,14 +146,95 @@ ApplicationWindow {
         onTriggered: appState.delete_selected_persons()
     }
 
+    Action {
+        id: zoomToFitAction
+        text: "Zoom to Fit"
+        shortcut: "f"
+        onTriggered: {
+            if (personViewOnly.visible) personViewOnly.zoomToFit = true
+            if (personViewCombined.visible) personViewCombined.zoomToFit = true
+        }
+    }
+
     SplitView {
         anchors.fill: parent
         orientation: Qt.Vertical
 
-        FrameView {
+        Item {
             SplitView.fillHeight: true
             SplitView.preferredHeight: 400
-            model: peopleFrameModel
+
+            // Case a: Only video, no 3D data
+            FrameView {
+                anchors.fill: parent
+                model: peopleFrameModel
+                visible: appState.hasVideo && !appState.has3DData
+            }
+
+            // Case b: Only 3D data, no video
+            PersonView {
+                id: personViewOnly
+                anchors.fill: parent
+                visible: !appState.hasVideo && appState.has3DData
+
+                Keys.onPressed: (event) => {
+                    if (event.key === Qt.Key_F) {
+                        personViewOnly.zoomToFit = true
+                    }
+                }
+            }
+
+            // Case c: Both video and 3D data
+            SplitView {
+                anchors.fill: parent
+                orientation: Qt.Horizontal
+                visible: appState.hasVideo && appState.has3DData
+
+                FrameView {
+                    SplitView.fillWidth: true
+                    SplitView.preferredWidth: parent.width / 2
+                    model: peopleFrameModel
+                }
+
+                PersonView {
+                    id: personViewCombined
+                    SplitView.fillWidth: true
+                    SplitView.preferredWidth: parent.width / 2
+
+                    Keys.onPressed: (event) => {
+                        if (event.key === Qt.Key_F) {
+                            personViewCombined.zoomToFit = true
+                        }
+                    }
+                }
+            }
+
+            // Placeholder when no project is loaded
+            Rectangle {
+                anchors.fill: parent
+                color: "#333333"
+                visible: !appState.hasVideo && !appState.has3DData
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "No project loaded"
+                    color: "#888888"
+                    font.pixelSize: 16
+                }
+            }
+        }
+
+        // Assessment View (optional, shown when data available and enabled)
+        AssessmentView {
+            id: assessmentView
+            SplitView.minimumHeight: 100
+            SplitView.preferredHeight: 150
+            visible: appState.hasAssessment && window.showAssessmentView
+
+            manager: appState
+            personId: window.selectedPersonId
+            metrics: window.selectedPersonMetrics
+            sidebarWidth: window.trackNameColumnWidth + window.visibilityColumnWidth + 20
         }
 
         ColumnLayout {

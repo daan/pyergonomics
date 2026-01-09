@@ -1,7 +1,11 @@
 import sys
 import argparse
+import warnings
 from pathlib import Path
 import importlib.resources
+
+# Suppress pkg_resources deprecation warning from bvhtoolbox (loaded via pose_skeletons)
+warnings.filterwarnings("ignore", message="pkg_resources is deprecated", category=UserWarning)
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QImage
@@ -14,8 +18,10 @@ from pyergonomics.ui.models.person_model import PersonModel
 from pyergonomics.ui.models.people_in_frame_proxy import PeopleInFrameProxyModel
 from pyergonomics.ui.models.people_in_time_proxy import PeopleInTimeProxyModel
 from pyergonomics.ui.skeleton_provider import SkeletonProvider
+from pyergonomics.ui.skeleton_geometry import SkeletonGeometry
 from pyergonomics.ui.graph_painter import GraphPainter
 import pyergonomics.ui as pye_ui
+import qtquick3d_opencv_helpers
 
 # Simple palette for the example
 DARK2_PALETTE = [
@@ -32,8 +38,10 @@ class FrameSource(QQuickImageProvider):
         try:
             if not self.app_state.config:
                 return QImage()
-                
-            frame_num = int(id)
+
+            # Strip query parameters (e.g., "0?v=1" -> "0")
+            frame_id = id.split("?")[0]
+            frame_num = int(frame_id)
             filepath = self.app_state.config.frame_path(frame_num)
             
             image = QImage(str(filepath))
@@ -73,9 +81,19 @@ def main():
     
     # Register GraphPainter
     qmlRegisterType(GraphPainter, "PyeHelpers", 0, 1, "GraphPainter")
+
+    # Register SkeletonGeometry for 3D view
+    qmlRegisterType(SkeletonGeometry, "PyeHelpers", 1, 0, "SkeletonGeometry")
     
     with importlib.resources.as_file(
         importlib.resources.files("pyergonomics.ui") / "qml"
+    ) as qml_path:
+        engine.addImportPath(str(qml_path))
+
+    # Register CvHelpers for 3D view
+    qtquick3d_opencv_helpers.register_qml_types()
+    with importlib.resources.as_file(
+        importlib.resources.files("qtquick3d_opencv_helpers") / "qml"
     ) as qml_path:
         engine.addImportPath(str(qml_path))
 
@@ -107,6 +125,7 @@ def main():
 
     # Context Properties
     engine.rootContext().setContextProperty("appState", app_state)
+    engine.rootContext().setContextProperty("personModel", person_model)
     engine.rootContext().setContextProperty("peopleFrameModel", proxy_model)
     engine.rootContext().setContextProperty("peopleModel", timeline_proxy_model)
     engine.rootContext().setContextProperty("skeletonProvider", skeleton_provider)

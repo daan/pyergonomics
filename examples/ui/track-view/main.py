@@ -29,7 +29,9 @@ class FrameSource(QQuickImageProvider):
 
     def requestImage(self, id, size, requestedSize):
         try:
-            frame_num = int(id)
+            # Strip query parameters (e.g., "0?v=1" -> "0")
+            frame_id = id.split("?")[0]
+            frame_num = int(frame_id)
             filepath = self.settings.frame_path(frame_num)
             
             image = QImage(str(filepath))

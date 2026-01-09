@@ -36,7 +36,8 @@ class AppState(QObject):
         self._total_frames = 0
         self._view_position = 0.0
         self._pixels_per_frame = 2.0
-        
+        self._project_version = 0
+
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._advance_frame)
         
@@ -201,7 +202,21 @@ class AppState(QObject):
     def sourceHeight(self):
         return self.config.height if (self.config and self.config.height) else 1
 
-    # ✨ NEW PROPERTY HERE ✨
+    @Property(bool, notify=projectLoaded)
+    def hasVideo(self):
+        return bool(self.config and self.config.frames_folder)
+
+    @Property(bool, notify=projectLoaded)
+    def has3DData(self):
+        return bool(self.config and self.config.pose_skeleton)
+
+    @Property(bool, notify=projectLoaded)
+    def hasAssessment(self):
+        if not self.tracker or not self.tracker.has_data:
+            return False
+        assessment_cols = ["trunk_bending", "trunk_side_bending", "trunk_twist"]
+        return all(col in self.tracker.df.columns for col in assessment_cols)
+
     @Property(QUrl, notify=currentFrameChanged)
     def currentFrameSource(self):
         # Constructs the full path to the image for the current frame.
