@@ -4,8 +4,25 @@
 
 ## install
 
+```bash
+# Jupyter notebook users
+uv sync --extra notebook
 
+# Qt editor users
+uv sync --extra qt
 
+# Motion data import (ultralytics, bvh)
+uv sync --extra sources
+
+# Development
+uv sync --extra dev
+
+# Multiple extras
+uv sync --extra qt --extra dev
+
+# Everything
+uv sync --all-extras
+```
 
 
 ## getting started
