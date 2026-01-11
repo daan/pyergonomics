@@ -287,12 +287,18 @@ class Tracker:
         This handles gaps in data by ensuring every angle is paired with its specific frame number.
         """
         # We now extract 'frame' explicitly
-        target_columns = ["frame", "trunk_bending", "trunk_side_bending", "trunk_twist"]
-        
+        target_columns = [
+            "frame",
+            "trunk_bending", "trunk_side_bending", "trunk_twist",
+            "left_elbow_above_shoulder", "right_elbow_above_shoulder",
+            "left_hand_above_head_level", "right_hand_above_head_level",
+            "left_far_reach", "right_far_reach",
+        ]
+
         if self.df is None:
             return {}
-        
-        # Check if assessment columns exist
+
+        # Check if assessment columns exist (only check trunk columns for backwards compatibility)
         if not all(col in self.df.columns for col in ["trunk_bending", "trunk_side_bending", "trunk_twist"]):
              print("Warning: Assessment columns not found.")
              return {}
@@ -306,14 +312,16 @@ class Tracker:
         else:
             q = q.sort("frame")
 
-        # Extract columns
+        # Extract columns (only those that exist in the dataframe)
         result = {}
         for col in target_columns:
+            if col not in self.df.columns:
+                continue
             if not q.is_empty():
                 result[col] = q.get_column(col).to_numpy()
             else:
                 result[col] = np.array([])
-                
+
         return result
 
     # def get_pose_metrics_for_person(self, person_id, frame=None):
@@ -361,11 +369,12 @@ class Tracker:
 def add_pose_assessment_columns(tracker, skeleton):
     """
     Calculates pose assessment metrics for all frames and persons in the project's tracker
-    and updates the DataFrame with 'trunk_bending', 'trunk_side_bending', and 'trunk_twist'.
+    and updates the DataFrame with trunk and arm assessment columns:
+    - trunk_bending, trunk_side_bending, trunk_twist
+    - left_elbow_above_shoulder, right_elbow_above_shoulder
+    - left_hand_above_head_level, right_hand_above_head_level
+    - left_far_reach, right_far_reach
     """
-    # tracker = project_settings.tracker
-    # skeleton = project_settings.pose_skeleton
-
     if tracker.df is None or "keypoints_3d" not in tracker.df.columns:
         print("Tracker has no data or missing 'keypoints_3d' column.")
         return
@@ -374,26 +383,38 @@ def add_pose_assessment_columns(tracker, skeleton):
     def _compute_row_metrics(keypoints):
         if keypoints is None:
             return None
-        
+
         # Ensure input is a numpy array
         kp_array = np.array(keypoints)
-        
+
         # Run the existing assessment logic
         # Note: We wrap this to strictly extract only the float values we want,
         # discarding the 'Plane' objects which would cause Polars to fail.
         results = make_pose_assessment(skeleton, kp_array)
-        
+
         return {
             "trunk_bending": results.get("trunk_bending"),
             "trunk_side_bending": results.get("trunk_side_bending"),
-            "trunk_twist": results.get("trunk_twist")
+            "trunk_twist": results.get("trunk_twist"),
+            "left_elbow_above_shoulder": results.get("left_elbow_above_shoulder"),
+            "right_elbow_above_shoulder": results.get("right_elbow_above_shoulder"),
+            "left_hand_above_head_level": results.get("left_hand_above_head_level"),
+            "right_hand_above_head_level": results.get("right_hand_above_head_level"),
+            "left_far_reach": results.get("left_far_reach"),
+            "right_far_reach": results.get("right_far_reach"),
         }
 
     # Define the output schema for Polars
     metrics_dtype = pl.Struct({
         "trunk_bending": pl.Float64,
         "trunk_side_bending": pl.Float64,
-        "trunk_twist": pl.Float64
+        "trunk_twist": pl.Float64,
+        "left_elbow_above_shoulder": pl.Float64,
+        "right_elbow_above_shoulder": pl.Float64,
+        "left_hand_above_head_level": pl.Float64,
+        "right_hand_above_head_level": pl.Float64,
+        "left_far_reach": pl.Float64,
+        "right_far_reach": pl.Float64,
     })
 
     # Apply the function and unnest the results into new columns

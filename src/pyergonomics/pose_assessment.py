@@ -49,6 +49,20 @@ def make_pose_assessment(skeleton: SkeletonDefinition, joints: np.ndarray):
     gp6_3 = a["ground_plane"].project_vector( joints[skeleton.l_shoulder] - joints[skeleton.r_shoulder] )
     a["trunk_twist"] = gp13_10.angle_between(gp6_3)/(np.pi*2) * 360 - 180
 
+    #
+    # arm assessment
+    #
+    a["left_elbow_above_shoulder"] = joints[skeleton.l_elbow][2] - joints[skeleton.l_shoulder][2]
+    a["right_elbow_above_shoulder"] = joints[skeleton.r_elbow][2] - joints[skeleton.r_shoulder][2]
+
+    a["left_hand_above_head_level"] = joints[skeleton.l_wrist][2] - joints[skeleton.head][2]
+    a["right_hand_above_head_level"] = joints[skeleton.r_wrist][2] - joints[skeleton.head][2]
+
+    arm_length = (np.linalg.norm(joints[skeleton.l_elbow] - joints[skeleton.l_wrist]) +
+                  np.linalg.norm(joints[skeleton.l_shoulder] - joints[skeleton.l_elbow]))
+    a["left_far_reach"] = np.linalg.norm(joints[skeleton.l_wrist][0:2] - joints[skeleton.l_shoulder][0:2]) / arm_length
+    a["right_far_reach"] = np.linalg.norm(joints[skeleton.r_wrist][0:2] - joints[skeleton.r_shoulder][0:2]) / arm_length
+
     return a
 
 

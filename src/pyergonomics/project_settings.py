@@ -6,18 +6,29 @@ from pathlib import Path
 from .tracker import Tracker
 
 
+class ProjectNotFoundError(Exception):
+    """Raised when a project folder or project.toml file is not found."""
+    pass
+
+
 class ProjectSettings:
     def __init__(self, config_path):
         self.config_path = Path(config_path)
+
         if self.config_path.is_dir():
             self.config_path = self.config_path / "project.toml"
 
-        if self.config_path.is_file():
-            with open(self.config_path, "rb") as f:
-                self.data = tomllib.load(f)
-        else:
-            self.data = {}
+        if not self.config_path.parent.exists():
+            raise ProjectNotFoundError(f"Project folder not found: {self.config_path.parent}")
+
+        if not self.config_path.is_file():
+            raise ProjectNotFoundError(f"Project file not found: {self.config_path}")
+
+        with open(self.config_path, "rb") as f:
+            self.data = tomllib.load(f)
+
         self._tracker = None
+        self._skeleton_cache = None
 
     @property
     def number_of_frames(self):
@@ -40,18 +51,26 @@ class ProjectSettings:
         self.data["project"]["frames_per_second"] = value
 
     @property
-    def pose_skeleton(self):
+    def pose_skeleton_name(self):
+        """The skeleton name as stored in config."""
         return self.data.get("project", {}).get("pose_skeleton")
 
-    @property
-    def pose_skeleton(self):
-        return self.data.get("project", {}).get("pose_skeleton")
-
-    @pose_skeleton.setter
-    def pose_skeleton(self, value):
+    @pose_skeleton_name.setter
+    def pose_skeleton_name(self, value: str):
         if "project" not in self.data:
             self.data["project"] = {}
         self.data["project"]["pose_skeleton"] = value
+        self._skeleton_cache = None
+
+    @property
+    def pose_skeleton(self):
+        """The skeleton object (cached)."""
+        if self._skeleton_cache is None:
+            name = self.pose_skeleton_name
+            if name:
+                from pose_skeletons import get_skeleton_def
+                self._skeleton_cache = get_skeleton_def(name)
+        return self._skeleton_cache
 
     @property
     def width(self):
@@ -121,8 +140,8 @@ class ProjectSettings:
             f"  - Number of frames: {self.number_of_frames}",
             f"  - FPS: {self.frames_per_second}",
         ]
-        if self.pose_skeleton:
-            lines.append(f"  - Pose skeleton: {self.pose_skeleton}")
+        if self.pose_skeleton_name:
+            lines.append(f"  - Pose skeleton: {self.pose_skeleton_name}")
         if self.width and self.height:
             lines.append(f"  - Dimensions: {self.width}x{self.height}")
         if self.source_video:
