@@ -7,6 +7,19 @@ from .pose_assessment import make_pose_assessment
 class MergeOverlapError(Exception):
     pass
 
+
+class AssessmentExistsError(Exception):
+    """Raised when pose assessment columns already exist in the tracker."""
+    pass
+
+
+POSE_ASSESSMENT_COLUMNS = [
+    "trunk_bending", "trunk_side_bending", "trunk_twist",
+    "left_elbow_above_shoulder", "right_elbow_above_shoulder",
+    "left_hand_above_head_level", "right_hand_above_head_level",
+    "left_far_reach", "right_far_reach",
+]
+
 class Tracker:
     def __init__(self, tracking_file_path):
         self.tracking_file_path = Path(tracking_file_path)
@@ -20,6 +33,21 @@ class Tracker:
     def has_data(self):
         """Returns True if tracking data was loaded successfully."""
         return self.df is not None
+
+    @property
+    def has_pose_assessment(self):
+        """Returns True if pose assessment columns exist in the dataframe."""
+        if self.df is None:
+            return False
+        return "trunk_bending" in self.df.columns
+
+    def remove_pose_assessment_columns(self):
+        """Removes all pose assessment columns from the dataframe."""
+        if self.df is None:
+            return
+        existing = [c for c in POSE_ASSESSMENT_COLUMNS if c in self.df.columns]
+        if existing:
+            self.df = self.df.drop(existing)
 
     def save(self, path=None):
         """Saves the current dataframe to parquet."""
@@ -374,10 +402,20 @@ def add_pose_assessment_columns(tracker, skeleton):
     - left_elbow_above_shoulder, right_elbow_above_shoulder
     - left_hand_above_head_level, right_hand_above_head_level
     - left_far_reach, right_far_reach
+
+    Raises:
+        AssessmentExistsError: If assessment columns already exist.
+            Call tracker.remove_pose_assessment_columns() first to recalculate.
     """
     if tracker.df is None or "keypoints_3d" not in tracker.df.columns:
         print("Tracker has no data or missing 'keypoints_3d' column.")
         return
+
+    if tracker.has_pose_assessment:
+        raise AssessmentExistsError(
+            "Assessment columns already exist. "
+            "Call tracker.remove_pose_assessment_columns() first to recalculate."
+        )
 
     # Define a helper to bridge Polars and the existing assessment function
     def _compute_row_metrics(keypoints):
