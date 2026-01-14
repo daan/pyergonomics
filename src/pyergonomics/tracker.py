@@ -21,13 +21,20 @@ POSE_ASSESSMENT_COLUMNS = [
 ]
 
 class Tracker:
-    def __init__(self, tracking_file_path):
-        self.tracking_file_path = Path(tracking_file_path)
+    def __init__(self, tracking_file_path=None):
+        self.tracking_file_path = Path(tracking_file_path) if tracking_file_path else None
         self.df = None
-        if self.tracking_file_path.is_file():
+        if self.tracking_file_path and self.tracking_file_path.is_file():
             self.df = pl.read_parquet(self.tracking_file_path)
-        else:
+        elif self.tracking_file_path:
             print(f"Warning: Tracking file not found at '{self.tracking_file_path}'")
+
+    @classmethod
+    def from_dataframe(cls, df: pl.DataFrame):
+        """Create an in-memory tracker from a DataFrame."""
+        tracker = cls(None)
+        tracker.df = df
+        return tracker
 
     @property
     def has_data(self):
@@ -53,12 +60,16 @@ class Tracker:
         """Saves the current dataframe to parquet."""
         if self.df is None:
             return
-        
+
         save_path = Path(path) if path else self.tracking_file_path
+        if save_path is None:
+            raise ValueError("No path specified for in-memory tracker. Provide a path.")
+
         # Ensure directory exists
         if save_path.parent:
             save_path.parent.mkdir(parents=True, exist_ok=True)
         self.df.write_parquet(save_path)
+        self.tracking_file_path = save_path
 
     def remove_persons(self, person_ids):
         """Removes specific person IDs from the data."""

@@ -55,6 +55,7 @@ include_package_data = true
 
 [dependency-groups]
 dev = [
+    "nb-clean>=4.0.1",
     "pyergonomics",
 ]
 

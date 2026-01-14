@@ -12,7 +12,16 @@ class ProjectNotFoundError(Exception):
 
 
 class ProjectSettings:
-    def __init__(self, config_path):
+    def __init__(self, config_path=None):
+        self._in_memory = config_path is None
+
+        if self._in_memory:
+            self.config_path = None
+            self.data = {"project": {}}
+            self._tracker = None
+            self._skeleton_cache = None
+            return
+
         self.config_path = Path(config_path)
 
         if self.config_path.is_dir():
@@ -29,6 +38,23 @@ class ProjectSettings:
 
         self._tracker = None
         self._skeleton_cache = None
+
+    def persist(self, project_dir):
+        """Save an in-memory project to disk."""
+        project_dir = Path(project_dir)
+        project_dir.mkdir(parents=True, exist_ok=True)
+
+        self.config_path = project_dir / "project.toml"
+
+        # Save tracker if present
+        if self._tracker is not None and self._tracker.df is not None:
+            tracking_filename = "tracking.parquet"
+            self._tracker.save(project_dir / tracking_filename)
+            self.set_tracking_file(tracking_filename)
+
+        self.save()
+        self._in_memory = False
+        print(f"Project saved to {project_dir}")
 
     @property
     def number_of_frames(self):
@@ -131,12 +157,19 @@ class ProjectSettings:
 
     def save(self, path=None):
         save_path = Path(path) if path else self.config_path
+        if save_path is None:
+            raise ValueError("No path specified for in-memory project. Use persist() instead.")
         with open(save_path, "w") as f:
             toml.dump(self.data, f)
 
     def __str__(self):
+        if self._in_memory:
+            header = "Project Settings (in-memory):"
+        else:
+            header = f"Project Settings from {self.config_path}:"
+
         lines = [
-            f"Project Settings from {self.config_path}:",
+            header,
             f"  - Number of frames: {self.number_of_frames}",
             f"  - FPS: {self.frames_per_second}",
         ]
@@ -146,13 +179,18 @@ class ProjectSettings:
             lines.append(f"  - Dimensions: {self.width}x{self.height}")
         if self.source_video:
             lines.append(f"  - Video source: {self.source_video}")
-        if self.frames_folder:
+        if not self._in_memory and self.frames_folder:
             lines.append(f"  - Frames folder: {self.frames_folder}")
         if self.tracker and self.tracker.df is not None:
-            lines.append(f"  - Tracking file: {self.tracker.tracking_file_path}")
+            if self.tracker.tracking_file_path:
+                lines.append(f"  - Tracking file: {self.tracker.tracking_file_path}")
+            else:
+                lines.append(f"  - Tracking: in-memory ({len(self.tracker.df)} rows)")
         return "\n".join(lines)
 
     def __repr__(self):
+        if self._in_memory:
+            return "ProjectSettings(in_memory=True)"
         return f"ProjectSettings(config_path='{self.config_path}')"
 
 
@@ -194,13 +232,22 @@ def init_project():
         from .importers.video import init_from_video
         init_from_video(destination, args.video)
     elif args.bvh:
-        from .importers.mocap import init_from_bvh
-        init_from_bvh(destination, args.bvh)
+        from .importers.bvh import from_bvh
+        settings = from_bvh(args.bvh)
+        settings.persist(destination)
     else:
-        # TODO: remove this defaulting behavior?
-        # Default project is mocap if no source is specified
-        from .importers.mocap import init_from_bvh
-        init_from_bvh(destination, None)
+        # Create empty project
+        destination.mkdir(parents=True, exist_ok=True)
+        config_path = destination / "project.toml"
+        data = {
+            "project": {
+                "number_of_frames": 0,
+                "frames_per_second": 120.0,
+            },
+        }
+        with open(config_path, "w") as f:
+            toml.dump(data, f)
+        print(f"Empty project created at {config_path}")
 
 
 if __name__ == "__main__":
