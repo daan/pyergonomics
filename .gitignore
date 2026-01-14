@@ -9,3 +9,4 @@ __pycache__/
 build
 .ipynb_checkpoints/
 *.parquet
+examples/data/

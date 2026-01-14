@@ -3,6 +3,7 @@ from bvhtoolbox import BvhTree
 import transforms3d as t3d
 from pathlib import Path
 import polars as pl
+from tqdm import tqdm
 
 
 def _compute_local_transform(bvh_tree, joint_name, frame):
@@ -32,7 +33,7 @@ def _world_joint_positions(bvh_tree, scale=1.0):
 
     bvh_dict = {}
 
-    for frame in range(nframes):
+    for frame in tqdm(range(nframes), desc="Loading BVH"):
         transforms = {}  # joint_name -> 4x4 matrix
 
         for joint in joints:
@@ -68,13 +69,14 @@ def _world_joint_positions(bvh_tree, scale=1.0):
     return bvh_dict
 
 
-def from_bvh(bvh_file, unit=None):
+def from_bvh(bvh_file, unit=None, ignore_first_frame=False):
     """
     Create an in-memory ProjectSettings from a BVH file.
 
     Args:
         bvh_file: Path to the BVH file.
         unit: Unit of the BVH position data (Unit.M, Unit.CM, etc.). Defaults to Unit.M.
+        ignore_first_frame: Skip the first frame (useful for files with T-pose at origin).
 
     Returns:
         ProjectSettings: In-memory project with tracking data loaded.
@@ -99,6 +101,11 @@ def from_bvh(bvh_file, unit=None):
 
     fps = 1.0 / bvh.frame_time
     frame_count = bvh.nframes
+
+    if ignore_first_frame:
+        for joint_name in world_coordinates:
+            world_coordinates[joint_name] = world_coordinates[joint_name][1:]
+        frame_count -= 1
 
     # Prepare data for DataFrame
     joint_names = list(world_coordinates.keys())
