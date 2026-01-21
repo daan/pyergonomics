@@ -33,13 +33,17 @@ dev = [
     "pydeps>=3.0.1",
     "nuitka>=2.8.9",
 ]
+test = [
+    "pytest>=8.0.0",
+    "nbmake>=1.5.0",
+]
 sources = [
     "ultralytics>=8.3.242",
     "lap>=0.5.12",
     "bvhtoolbox>=0.1.3",
 ]
 all = [
-    "pyergonomics[notebook,qt,dev,sources]",
+    "pyergonomics[notebook,qt,dev,sources,test]",
 ]
 
 [build-system]
@@ -57,6 +61,8 @@ include_package_data = true
 dev = [
     "nb-clean>=4.0.1",
     "pyergonomics",
+    "pytest>=9.0.2",
+    "ty>=0.0.13",
 ]
 
 [tool.uv.sources]
@@ -67,4 +73,9 @@ qtquick3d-opencv-helpers = { git = "https://github.com/daan/qtquick3d-opencv-hel
 [project.scripts]
 init-project = "pyergonomics:init_project"
 pye2csv = "pyergonomics.exporters.csv_export:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
 
