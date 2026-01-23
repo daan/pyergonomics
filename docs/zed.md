@@ -23,21 +23,17 @@ Note: The ZED SDK must also be installed on your system. See the [ZED SDK instal
 ```python
 from pyergonomics.importers import from_zed, BodyFormat
 
-# Basic usage with BODY_34 format (default)
-project = from_zed("recording.svo2")
+# Basic usage with BODY_34 format (default, extracts frames)
+project = from_zed("recording.svo2", output_dir="./output")
 
 # Use BODY_18 format (COCO-compatible)
-project = from_zed("recording.svo2", body_format=BodyFormat.BODY_18)
+project = from_zed("recording.svo2", output_dir="./output", body_format=BodyFormat.BODY_18)
 
-# Extract video frames while importing
-project = from_zed(
-    "recording.svo2",
-    extract_frames=True,
-    output_dir="./output"
-)
+# Skip frame extraction (tracking data only)
+project = from_zed("recording.svo2", extract_frames=False)
 
 # Adjust detection confidence (0-100)
-project = from_zed("recording.svo2", detection_confidence=60)
+project = from_zed("recording.svo2", output_dir="./output", detection_confidence=60)
 ```
 
 ## Body Formats
@@ -52,8 +48,8 @@ project = from_zed("recording.svo2", detection_confidence=60)
 | `svo_file` | str | required | Path to the SVO2 file |
 | `body_format` | BodyFormat | `BODY_34` | Body tracking format |
 | `detection_confidence` | int | 40 | Detection confidence threshold (0-100) |
-| `extract_frames` | bool | False | Extract video frames to disk |
-| `output_dir` | str | None | Output directory for extracted frames |
+| `extract_frames` | bool | True | Extract video frames to disk |
+| `output_dir` | str | None | Output directory for extracted frames (required if extract_frames=True) |
 
 ## Output
 

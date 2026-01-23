@@ -52,8 +52,11 @@ Import a Stereolabs ZED SVO2 file (requires pyzed, see [docs/zed.md](docs/zed.md
 ```bash
 pye-import-zed <svo_file> <destination>
 
-# Options
-pye-import-zed recording.svo2 myproject --body-format body_34 --extract-frames
+# Skip frame extraction (frames extracted by default)
+pye-import-zed recording.svo2 myproject --no-extract-frames
+
+# Use BODY_18 format instead of BODY_34
+pye-import-zed recording.svo2 myproject --body-format body_18
 ```
 
 Open the editor:

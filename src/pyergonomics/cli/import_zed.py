@@ -36,9 +36,9 @@ def main():
         help="Detection confidence threshold 0-100 (default: 40)."
     )
     parser.add_argument(
-        "--extract-frames",
+        "--no-extract-frames",
         action="store_true",
-        help="Extract video frames to the project folder."
+        help="Skip extracting video frames (default: frames are extracted)."
     )
 
     args = parser.parse_args()
@@ -55,12 +55,14 @@ def main():
 
     body_format = BodyFormat.BODY_34 if args.body_format == "body_34" else BodyFormat.BODY_18
 
+    extract_frames = not args.no_extract_frames
+
     settings = from_zed(
         args.svo_file,
         body_format=body_format,
         detection_confidence=args.detection_confidence,
-        extract_frames=args.extract_frames,
-        output_dir=destination if args.extract_frames else None,
+        extract_frames=extract_frames,
+        output_dir=destination if extract_frames else None,
     )
     persist_project(settings, destination)
 

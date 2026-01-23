@@ -27,7 +27,7 @@ def from_zed(
     svo_file,
     body_format=BodyFormat.BODY_34,
     detection_confidence=40,
-    extract_frames=False,
+    extract_frames=True,
     output_dir=None,
 ):
     """
@@ -169,9 +169,12 @@ def from_zed(
     settings = ProjectSettings()
     settings.number_of_frames = frame_idx
     settings.frames_per_second = fps
-    settings.width = width
-    settings.height = height
     settings.pose_skeleton_name = skeleton_name
     settings._tracker = Tracker.from_dataframe(df)
+
+    # Only set video dimensions if frames were extracted
+    if extract_frames:
+        settings.width = width
+        settings.height = height
 
     return settings
