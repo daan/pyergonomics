@@ -64,8 +64,9 @@ class GraphPainter(QQuickPaintedItem):
 
     @metrics.setter
     def metrics(self, value):
-        if self._metrics != value:
-            self._metrics = value
+        new_value = value if value is not None else {}
+        if self._metrics != new_value:
+            self._metrics = new_value
             self.metricsChanged.emit()
             self.update()
 

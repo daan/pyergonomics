@@ -6,7 +6,7 @@ Item {
     id: root
 
     property int personId: -1
-    property var metrics: null
+    property var metrics: ({})
 
     property var manager // AppState
 

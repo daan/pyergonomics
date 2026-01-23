@@ -1,4 +1,3 @@
-.aider*
 __pycache__/
 *.pyc
 *.pyo
@@ -9,4 +8,6 @@ __pycache__/
 build
 .ipynb_checkpoints/
 *.parquet
+
+data/
 examples/data/

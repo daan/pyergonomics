@@ -1,4 +1,4 @@
-from .project_settings import ProjectSettings, ProjectNotFoundError, init_project
+from .project_settings import ProjectSettings, ProjectNotFoundError
 from .tracker import Tracker, AssessmentExistsError, add_pose_assessment_columns
 from .pose_assessment import make_pose_assessment
 

@@ -29,22 +29,47 @@ uv sync --all-extras
 
 ### Command line
 
-Initialize a project using a bvh file:
+Import a BVH file:
 
 ```bash
-init-project --bvh <path to bvh file> new_project
+pye-import-bvh <bvh_file> <destination>
+
+# Specify unit (m, cm, mm, inch) - default is m
+pye-import-bvh motion.bvh myproject --unit cm
+
+# Skip first frame (useful for BVH files with T-pose at origin)
+pye-import-bvh xsens.bvh myproject --unit cm --ignore-first-frame
 ```
 
-Note that the bvh file is not copied into the project.
+Import a video file:
+
+```bash
+pye-import-video <video_file> <destination>
+```
+
+Import a Stereolabs ZED SVO2 file (requires pyzed, see [docs/zed.md](docs/zed.md)):
+
+```bash
+pye-import-zed <svo_file> <destination>
+
+# Options
+pye-import-zed recording.svo2 myproject --body-format body_34 --extract-frames
+```
+
+Open the editor:
+
+```bash
+pye-editor <project_folder>
+```
 
 ### Python API
 
 ```python
 from pyergonomics import ProjectSettings, add_pose_assessment_columns
-from pyergonomics.importers import from_bvh
+from pyergonomics.importers import from_bvh, Unit
 
 # Option A: Load from BVH file (in-memory, no disk writes)
-settings = from_bvh("path/to/motion.bvh", unit="mm")
+settings = from_bvh("path/to/motion.bvh", unit=Unit.MM)
 
 # Option B: Load from existing project folder
 settings = ProjectSettings("path/to/project")

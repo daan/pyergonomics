@@ -71,7 +71,10 @@ pose-skeletons = { git = "https://github.com/daan/pose_skeletons" }
 qtquick3d-opencv-helpers = { git = "https://github.com/daan/qtquick3d-opencv-helpers" }
 
 [project.scripts]
-init-project = "pyergonomics:init_project"
+pye-import-bvh = "pyergonomics.cli.import_bvh:main"
+pye-import-zed = "pyergonomics.cli.import_zed:main"
+pye-import-video = "pyergonomics.cli.import_video:main"
+pye-editor = "pyergonomics.ui.apps.editor.editor:main"
 pye2csv = "pyergonomics.exporters.csv_export:main"
 
 [tool.pytest.ini_options]

@@ -1,4 +1,3 @@
-import argparse
 import toml
 import tomllib
 from pathlib import Path
@@ -194,62 +193,4 @@ class ProjectSettings:
         return f"ProjectSettings(config_path='{self.config_path}')"
 
 
-def init_project():
-    parser = argparse.ArgumentParser(description="Initialize a pyergonomics project.")
-    parser.add_argument(
-        "folder",
-        nargs="?",
-        default=".",
-        help="The directory to initialize the project in. Defaults to the current directory.",
-    )
-    source_group = parser.add_mutually_exclusive_group()
-    source_group.add_argument(
-        "--video", type=str, help="Initialize project from a video file."
-    )
-    source_group.add_argument(
-        "--bvh", type=str, help="Initialize project from a BVH file."
-    )
-
-    args = parser.parse_args()
-    destination = Path(args.folder)
-
-    # Check if target is a file
-    if destination.exists() and not destination.is_dir():
-        print(f"Error: '{destination}' exists and is not a directory.")
-        return
-
-    # Check if target directory exists (and is not the CWD)
-    if destination.is_dir() and args.folder != ".":
-        print(f"Error: Directory '{destination}' already exists.")
-        return
-
-    # Check for existing project file
-    if (destination / "project.toml").exists():
-        print(f"Error: A project.toml file already exists in '{destination}'.")
-        return
-
-    if args.video:
-        from .importers.video import init_from_video
-        init_from_video(destination, args.video)
-    elif args.bvh:
-        from .importers.bvh import from_bvh
-        settings = from_bvh(args.bvh)
-        settings.persist(destination)
-    else:
-        # Create empty project
-        destination.mkdir(parents=True, exist_ok=True)
-        config_path = destination / "project.toml"
-        data = {
-            "project": {
-                "number_of_frames": 0,
-                "frames_per_second": 120.0,
-            },
-        }
-        with open(config_path, "w") as f:
-            toml.dump(data, f)
-        print(f"Empty project created at {config_path}")
-
-
-if __name__ == "__main__":
-    init_project()
 

@@ -1,7 +1,5 @@
 from PySide6.QtCore import QObject, Property, Signal
 
-from pose_skeletons import get_skeleton_def 
-
 
 class SkeletonProvider(QObject):
     skeletonsChanged = Signal()
@@ -17,6 +15,8 @@ class SkeletonProvider(QObject):
 
     @Property("QVariantList", notify=skeletonsChanged)
     def skeletons(self):
+        if not self._app_state.config:
+            return []
         tracker = self._app_state.config.tracker
         if not tracker or not tracker.has_data:
             return []
@@ -36,7 +36,9 @@ class SkeletonProvider(QObject):
 
     @Property("QVariantList", notify=boneConnectionsChanged)
     def boneConnections(self):
-        skeleton = get_skeleton_def(self._app_state.config.pose_skeleton) # TODO put in project settings
+        if not self._app_state.config:
+            return []
+        skeleton = self._app_state.config.pose_skeleton
 
         if skeleton:
             # Assuming skeleton.bones is a list of [start_index, end_index]
