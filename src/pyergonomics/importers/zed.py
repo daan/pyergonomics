@@ -29,6 +29,7 @@ def from_zed(
     detection_confidence=40,
     extract_frames=True,
     output_dir=None,
+    set_floor_as_origin=True,
 ):
     """
     Create a ProjectSettings from a ZED SVO2 file with body tracking.
@@ -39,6 +40,7 @@ def from_zed(
         detection_confidence: Detection confidence threshold (0-100). Default 40.
         extract_frames: If True, extract video frames to output_dir/frames/.
         output_dir: Directory for extracted frames. Required if extract_frames=True.
+        set_floor_as_origin: If True (default), set floor plane as coordinate origin.
 
     Returns:
         ProjectSettings: In-memory project with tracking data loaded.
@@ -94,6 +96,8 @@ def from_zed(
         # Enable positional tracking (required for body tracking)
         positional_tracking_params = sl.PositionalTrackingParameters()
         positional_tracking_params.set_as_static = True
+        if set_floor_as_origin:
+            positional_tracking_params.set_floor_as_origin = True
         zed.enable_positional_tracking(positional_tracking_params)
 
         # Configure body tracking
