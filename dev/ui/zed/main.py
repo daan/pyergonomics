@@ -12,7 +12,7 @@ from PySide6.QtCore import QUrl, QObject, Property, Signal
 import pyzed.sl as sl
 
 from zed_body_tracker import ZedBodyTracker, ZedThread
-from zed_skeleton_provider import ZedSkeletonProvider
+from zed_skeleton_provider import ZedSkeletonProvider, ZedFrameProvider
 
 # Import pyergonomics UI components
 from pyergonomics.ui.skeleton_geometry import SkeletonGeometry
@@ -81,10 +81,15 @@ def main():
     # Create app state and skeleton provider
     app_state = AppState()
     skeleton_provider = ZedSkeletonProvider()
+    frame_provider = ZedFrameProvider()
+
+    # Register frame provider for QML image access
+    engine.addImageProvider("zed_frame", frame_provider)
 
     # Create ZED tracker (pass skeleton_provider for direct updates)
     tracker = ZedBodyTracker(
         skeleton_provider=skeleton_provider,
+        frame_provider=frame_provider,
         svo_path=args.svo_path,
         body_format=body_format,
         enable_body_fitting=not args.no_fitting,

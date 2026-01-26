@@ -1,6 +1,10 @@
 """
 Stereolabs ZED camera importer.
 
+Assumes a static camera. Detects the floor plane and transforms 3D keypoints
+into world coordinates (z-up, floor at z=0). Stores the rectified left camera
+image, camera intrinsics, and extrinsics for 3D-to-2D projection.
+
 Requires the pyzed wheel which must be downloaded from Stereolabs website.
 See docs/zed.md for installation instructions.
 """
@@ -23,16 +27,65 @@ class BodyFormat:
     BODY_34 = "body_34"
 
 
+def _create_floor_transform(floor_plane_eq):
+    """Create rotation and translation to transform camera coords to world coords.
+
+    World frame: z-up (floor normal), y-forward (camera direction projected
+    on floor), x-right. Floor is at z=0.
+
+    Args:
+        floor_plane_eq: [a, b, c, d] where ax + by + cz + d = 0
+
+    Returns:
+        R: 3x3 rotation matrix (p_world = R @ p_camera + t)
+        t: 3-element translation vector
+    """
+    a, b, c, d = floor_plane_eq
+    n = np.array([a, b, c])
+    n = n / np.linalg.norm(n)
+
+    z_world = n
+
+    # Camera forward in ZED RIGHT_HANDED_Z_UP is (0, 1, 0)
+    cam_forward = np.array([0, 1, 0])
+
+    # y_world: camera forward projected onto floor plane, normalized
+    y_world = cam_forward - np.dot(cam_forward, z_world) * z_world
+    y_norm = np.linalg.norm(y_world)
+
+    if y_norm < 1e-6:
+        # Camera looking straight up/down, use camera right as fallback
+        cam_right = np.array([1, 0, 0])
+        x_world = cam_right - np.dot(cam_right, z_world) * z_world
+        x_world = x_world / np.linalg.norm(x_world)
+        y_world = np.cross(z_world, x_world)
+    else:
+        y_world = y_world / y_norm
+        x_world = np.cross(y_world, z_world)
+
+    R = np.vstack([x_world, y_world, z_world])
+    t = np.array([0, 0, d])
+
+    return R, t
+
+
+def _transform_keypoints(keypoints, R, t):
+    """Transform keypoints from camera to world coordinates."""
+    return (R @ keypoints.T).T + t
+
+
 def from_zed(
     svo_file,
     body_format=BodyFormat.BODY_34,
     detection_confidence=40,
     extract_frames=True,
     output_dir=None,
-    set_floor_as_origin=True,
 ):
     """
     Create a ProjectSettings from a ZED SVO2 file with body tracking.
+
+    Assumes a static camera. Detects the floor plane to establish world
+    coordinates (z-up, floor at z=0). Extracts rectified left camera frames.
 
     Args:
         svo_file: Path to the SVO2 file.
@@ -40,7 +93,6 @@ def from_zed(
         detection_confidence: Detection confidence threshold (0-100). Default 40.
         extract_frames: If True, extract video frames to output_dir/frames/.
         output_dir: Directory for extracted frames. Required if extract_frames=True.
-        set_floor_as_origin: If True (default), set floor plane as coordinate origin.
 
     Returns:
         ProjectSettings: In-memory project with tracking data loaded.
@@ -90,14 +142,19 @@ def from_zed(
         camera_info = zed.get_camera_information()
         svo_frame_count = zed.get_svo_number_of_frames()
         fps = camera_info.camera_configuration.fps
-        width = camera_info.camera_configuration.resolution.width
-        height = camera_info.camera_configuration.resolution.height
+        calib = camera_info.camera_configuration.calibration_parameters
+        left_cam = calib.left_cam
+        img_width = left_cam.image_size.width
+        img_height = left_cam.image_size.height
+
+        # Camera intrinsics (rectified left camera)
+        fx, fy = float(left_cam.fx), float(left_cam.fy)
+        cx, cy = float(left_cam.cx), float(left_cam.cy)
 
         # Enable positional tracking (required for body tracking)
         positional_tracking_params = sl.PositionalTrackingParameters()
         positional_tracking_params.set_as_static = True
-        if set_floor_as_origin:
-            positional_tracking_params.set_floor_as_origin = True
+        positional_tracking_params.set_floor_as_origin = True
         zed.enable_positional_tracking(positional_tracking_params)
 
         # Configure body tracking
@@ -117,6 +174,29 @@ def from_zed(
         body_runtime_param = sl.BodyTrackingRuntimeParameters()
         body_runtime_param.detection_confidence_threshold = detection_confidence
 
+        # Detect floor plane for world coordinate transform
+        # Need to grab a few frames first for reliable floor detection
+        for _ in range(30):
+            if zed.grab() != sl.ERROR_CODE.SUCCESS:
+                break
+
+        floor_transform = None
+        floor_plane_eq = None
+        plane = sl.Plane()
+        reset_transform = sl.Transform()
+        if zed.find_floor_plane(plane, reset_transform) == sl.ERROR_CODE.SUCCESS:
+            floor_plane_eq = [float(v) for v in plane.get_plane_equation()]
+            R, t = _create_floor_transform(floor_plane_eq)
+            floor_transform = (R, t)
+            print(f"Floor plane detected: normal=({floor_plane_eq[0]:.3f}, "
+                  f"{floor_plane_eq[1]:.3f}, {floor_plane_eq[2]:.3f}), "
+                  f"d={floor_plane_eq[3]:.3f}")
+        else:
+            print("WARNING: Floor plane not detected, keypoints stored in camera coordinates")
+
+        # Reset to start after floor detection
+        zed.set_svo_position(0)
+
         # Data collection
         data = {
             "frame": [],
@@ -127,6 +207,7 @@ def from_zed(
             "h": [],
             "keypoints_3d": [],
             "keypoints_2d": [],
+            "keypoint_confidence": [],
         }
 
         image = sl.Mat()
@@ -153,8 +234,15 @@ def from_zed(
                         data["w"].append(float(bb[1][0] - bb[0][0]))
                         data["h"].append(float(bb[3][1] - bb[0][1]))
 
-                        data["keypoints_3d"].append(body.keypoint.tolist())
+                        # Transform 3D keypoints to world coordinates
+                        keypoints_3d = body.keypoint
+                        if floor_transform is not None:
+                            R, t_vec = floor_transform
+                            keypoints_3d = _transform_keypoints(keypoints_3d, R, t_vec)
+                        data["keypoints_3d"].append(keypoints_3d.tolist())
+
                         data["keypoints_2d"].append(body.keypoint_2d.tolist())
+                        data["keypoint_confidence"].append(body.keypoint_confidence.tolist())
 
                 frame_idx += 1
                 pbar.update(1)
@@ -176,9 +264,23 @@ def from_zed(
     settings.pose_skeleton_name = skeleton_name
     settings._tracker = Tracker.from_dataframe(df)
 
-    # Only set video dimensions if frames were extracted
-    if extract_frames:
-        settings.width = width
-        settings.height = height
+    # Camera intrinsics (rectified left camera)
+    settings.data["camera"] = {
+        "fx": fx,
+        "fy": fy,
+        "cx": cx,
+        "cy": cy,
+        "image_width": img_width,
+        "image_height": img_height,
+    }
+
+    # Camera extrinsics (floor transform: camera → world)
+    if floor_transform is not None:
+        R, t_vec = floor_transform
+        settings.data["camera"]["extrinsics"] = {
+            "rotation": R.tolist(),
+            "translation": t_vec.tolist(),
+            "floor_plane": floor_plane_eq,
+        }
 
     return settings

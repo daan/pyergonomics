@@ -13,6 +13,8 @@ dependencies = [
     "tqdm>=4.67.1",
     "toml>=0.10.2",
     "pose-skeletons",
+    "pyzed",
+    "deface>=1.5.0",
 ]
 
 [project.optional-dependencies]
@@ -69,11 +71,13 @@ dev = [
 pyergonomics = { workspace = true }
 pose-skeletons = { git = "https://github.com/daan/pose_skeletons" }
 qtquick3d-opencv-helpers = { git = "https://github.com/daan/qtquick3d-opencv-helpers" }
+pyzed = { path = "pyzed-5.0-cp312-cp312-linux_x86_64.whl" }
 
 [project.scripts]
 pye-import-bvh = "pyergonomics.cli.import_bvh:main"
 pye-import-zed = "pyergonomics.cli.import_zed:main"
 pye-import-video = "pyergonomics.cli.import_video:main"
+pye-anonymize = "pyergonomics.cli.anonymize:main"
 pye-editor = "pyergonomics.ui.apps.editor.editor:main"
 pye2csv = "pyergonomics.exporters.csv_export:main"
 

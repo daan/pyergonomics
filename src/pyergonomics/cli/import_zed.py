@@ -40,11 +40,6 @@ def main():
         action="store_true",
         help="Skip extracting video frames (default: frames are extracted)."
     )
-    parser.add_argument(
-        "--no-floor-as-origin",
-        action="store_true",
-        help="Don't use floor plane as coordinate origin (default: floor is origin)."
-    )
 
     args = parser.parse_args()
     destination = Path(args.destination)
@@ -68,7 +63,6 @@ def main():
         detection_confidence=args.detection_confidence,
         extract_frames=extract_frames,
         output_dir=destination if extract_frames else None,
-        set_floor_as_origin=not args.no_floor_as_origin,
     )
     persist_project(settings, destination)
 
