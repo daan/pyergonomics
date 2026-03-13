@@ -3,7 +3,7 @@ import numpy as np
 from pose_skeletons import SkeletonDefinition
 
 def make_pose_assessment(skeleton: SkeletonDefinition, joints: np.ndarray):    
-    from skspatial.objects import Plane, Vector 
+    from skspatial.objects import Plane 
     
     a = {}
     # upper body planes
